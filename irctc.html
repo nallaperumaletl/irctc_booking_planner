@@ -122,6 +122,44 @@
     .icon-link{ background:#e5e7eb; color:#111827; }     /* Copy Link */
     .icon-btn:hover{ filter:brightness(1.06); }
     .icon-btn-sm:hover{ filter:brightness(1.06); }
+
+    /* ===== Username modal ===== */
+    .name-modal-backdrop{
+      position:fixed; inset:0; z-index:1000;
+      background:rgba(2,6,23,.65);
+      display:none; align-items:center; justify-content:center;
+      backdrop-filter:blur(2px);
+    }
+    .name-modal-backdrop.show{ display:flex; }
+    .name-modal{
+      width:min(92vw,420px);
+      border-radius:16px;
+      padding:20px;
+      background:linear-gradient(145deg,#f8fafc,#e2e8f0);
+      border:1px solid #cbd5e1;
+      box-shadow:0 18px 45px rgba(15,23,42,.25);
+    }
+    .dark .name-modal{
+      background:linear-gradient(145deg,#111827,#1f2937);
+      border-color:#334155;
+      box-shadow:0 20px 50px rgba(2,6,23,.55);
+    }
+    .name-title{ font-size:1.05rem; font-weight:700; color:#0f172a; }
+    .dark .name-title{ color:#e2e8f0; }
+    .name-sub{ font-size:.86rem; color:#475569; margin-top:4px; }
+    .dark .name-sub{ color:#94a3b8; }
+    .name-input{
+      width:100%; margin-top:12px; border-radius:10px; padding:.6rem .75rem;
+      border:1px solid #94a3b8; background:#ffffff; color:#0f172a;
+    }
+    .dark .name-input{
+      border-color:#475569; background:#0f172a; color:#e2e8f0;
+    }
+    .name-btn{
+      margin-top:12px; width:100%; border-radius:10px; padding:.6rem .75rem;
+      background:#2563eb; color:#fff; font-weight:600;
+    }
+    .name-err{ margin-top:8px; min-height:1rem; font-size:.8rem; color:#dc2626; }
   </style>
 </head>
 
@@ -379,6 +417,17 @@
     </div>
   </div>
 
+  <!-- Username Prompt Modal -->
+  <div id="nameModalBackdrop" class="name-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="namePromptTitle">
+    <div class="name-modal">
+      <div id="namePromptTitle" class="name-title">Welcome to IRCTC Planner</div>
+      <div class="name-sub">Please enter your name to continue.</div>
+      <input id="nameInput" class="name-input" type="text" maxlength="40" placeholder="Enter your name" autocomplete="name">
+      <button id="nameSubmitBtn" class="name-btn" type="button">Continue</button>
+      <div id="nameError" class="name-err"></div>
+    </div>
+  </div>
+
   <!-- ================= JAVASCRIPT ================= -->
   <script>
     let currentDate = new Date();
@@ -387,6 +436,9 @@
     let bookingDateObj = null;
     let mode = "booking";
     let showHolidays = true;
+    let currentUserName = "";
+    let pendingProtectedAction = null;
+    let namePromptTimer = null;
 
     // Holidays TN - sample (2026). Replace/import per year.
     let tnHolidays = [
@@ -422,6 +474,55 @@
         calculate();
       }
     })();
+
+    /* ===== Username guard ===== */
+    (function initUserGuard(){
+      currentUserName = (localStorage.getItem("irctcUserName") || "").trim();
+      if(!currentUserName){
+        namePromptTimer = setTimeout(()=>{
+          openNamePrompt();
+        }, 15000);
+      }
+    })();
+    function openNamePrompt(){
+      const backdrop = document.getElementById("nameModalBackdrop");
+      const input = document.getElementById("nameInput");
+      const err = document.getElementById("nameError");
+      if(!backdrop || !input || !err) return;
+      backdrop.classList.add("show");
+      err.textContent = "";
+      input.value = currentUserName || "";
+      setTimeout(()=>input.focus(), 0);
+    }
+    function closeNamePrompt(){
+      const backdrop = document.getElementById("nameModalBackdrop");
+      if(backdrop) backdrop.classList.remove("show");
+    }
+    function saveUserNameFromPrompt(){
+      const input = document.getElementById("nameInput");
+      const err = document.getElementById("nameError");
+      if(!input || !err) return;
+      const raw = (input.value || "").trim();
+      const cleaned = raw.replace(/\s+/g, " ");
+      if(cleaned.length < 2){
+        err.textContent = "Please enter at least 2 characters.";
+        input.focus();
+        return;
+      }
+      currentUserName = cleaned;
+      localStorage.setItem("irctcUserName", currentUserName);
+      if(namePromptTimer){ clearTimeout(namePromptTimer); namePromptTimer = null; }
+      closeNamePrompt();
+      const pending = pendingProtectedAction;
+      pendingProtectedAction = null;
+      if(typeof pending === "function") pending();
+    }
+    function requireUserName(actionFn){
+      if(currentUserName) return true;
+      pendingProtectedAction = actionFn || null;
+      openNamePrompt();
+      return false;
+    }
 
     /* ===== UI State ===== */
     function setMode(newMode){
@@ -625,6 +726,7 @@
 
     /* ===== Save & Saved View ===== */
     function savePlan(){
+      if(!requireUserName(savePlan)) return;
       if(!selectedDate) return alert("Select date first");
       const plan={
         travel: travelDateObj ? isoDate(travelDateObj) : "",
@@ -643,6 +745,7 @@
     }
 
     function showSavedView(){
+      if(!requireUserName(showSavedView)) return;
       document.getElementById("calculatorView").classList.add("hidden");
       document.getElementById("savedView").classList.remove("hidden");
       loadSavedTable();
@@ -721,6 +824,7 @@
 
     /* ===== Downloads / TXT ===== */
     function downloadTXT(){
+      if(!requireUserName(downloadTXT)) return;
       if(!selectedDate) return alert("Select date first");
       const content=`IRCTC Booking Plan
 Booking: ${document.getElementById("bookingDate").innerText}
@@ -735,6 +839,7 @@ Website: https://www.irctc.co.in`;
     }
 
     async function downloadBulkPDF(){
+      if(!requireUserName(downloadBulkPDF)) return;
       const plans = JSON.parse(localStorage.getItem("irctcPlans")) || [];
       if(plans.length===0) return alert("No saved plans");
       const { jsPDF } = window.jspdf;
@@ -780,6 +885,7 @@ Website: https://www.irctc.co.in`;
 
     /* ===== Professional All-in-One PDF (Booking first) ===== */
     function downloadAllInOnePDF(){
+      if(!requireUserName(downloadAllInOnePDF)) return;
       if(!selectedDate) return alert("Select date first");
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
@@ -809,7 +915,18 @@ Website: https://www.irctc.co.in`;
       doc.setFillColor(side[0],side[1],side[2]); doc.rect(0,0,10,297,'F');
       doc.setFillColor(blue[0],blue[1],blue[2]); doc.rect(10,0,200,24,'F');
       doc.setTextColor(255,255,255); doc.setFontSize(16);
-      doc.text("IRCTC Booking Planner — Plan Summary", 112, 14, {align:"center"});
+      doc.text("IRCTC Booking Planner — Plan Summary", 16, 14);
+      if(currentUserName){
+        doc.setFillColor(255,255,255);
+        doc.setDrawColor(219,234,254);
+        doc.roundedRect(146, 6, 56, 12, 2, 2, "FD");
+        doc.setTextColor(30,64,175);
+        doc.setFont("times","italic");
+        doc.setFontSize(10);
+        doc.text(`Hi ${currentUserName}`, 174, 14, {align:"center"});
+        doc.setFont("helvetica","normal");
+        doc.setTextColor(255,255,255);
+      }
       if(subtitle){
         doc.setFontSize(10);
         doc.text(subtitle, 112, 21, {align:"center"});
@@ -901,6 +1018,7 @@ Website: https://www.irctc.co.in`;
       return accents[i % accents.length];
     }
     function createCurrentPlanPDFBlob(){
+      if(!currentUserName) return null;
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       const bookingText = bookingDateObj ? formatDisplayDate(bookingDateObj) : document.getElementById("bookingDate").innerText;
@@ -915,9 +1033,11 @@ Website: https://www.irctc.co.in`;
       return doc.output("blob");
     }
     async function sharePlanWithPDF(target){
+      if(!requireUserName(()=>sharePlanWithPDF(target))) return;
       if(!selectedDate) return alert("Select date first");
       const message = buildShareMessage();
       const pdfBlob = createCurrentPlanPDFBlob();
+      if(!pdfBlob) return alert("Please enter your name first.");
 
       const canShareFiles = !!(navigator.share && navigator.canShare);
       if(canShareFiles){
@@ -973,6 +1093,7 @@ Official: https://www.irctc.co.in`;
 
     /* ===== Google Calendar & ICS ===== */
     function addToGoogleCalendar(){
+      if(!requireUserName(addToGoogleCalendar)) return;
       if(!selectedDate) return alert("Select date first");
       const travel = travelDateObj;
       const booking = bookingDateObj;
@@ -982,6 +1103,7 @@ Official: https://www.irctc.co.in`;
       window.open(url, "_blank");
     }
     function downloadICSFile(){
+      if(!requireUserName(downloadICSFile)) return;
       if(!selectedDate) return alert("Select date first");
       const travel = travelDateObj;
       const booking = bookingDateObj;
@@ -994,6 +1116,7 @@ Official: https://www.irctc.co.in`;
       a.click();
     }
     function downloadCombinedICSFile(){
+      if(!requireUserName(downloadCombinedICSFile)) return;
       if(!selectedDate) return alert("Select date first");
       const travel = travelDateObj;
       const booking = bookingDateObj;
@@ -1147,6 +1270,7 @@ Days: ${days}`;
 
     /* ===== Share (Saved rows) ===== */
     function shareWhatsAppSaved(i){
+      if(!requireUserName(()=>shareWhatsAppSaved(i))) return;
       const plan = (JSON.parse(localStorage.getItem("irctcPlans")) || [])[i];
       if(!plan) return;
       const msg = buildShareMessageFromPlan(plan);
@@ -1154,6 +1278,7 @@ Days: ${days}`;
       window.open(url, "_blank");
     }
     function shareEmailSaved(i){
+      if(!requireUserName(()=>shareEmailSaved(i))) return;
       const plan = (JSON.parse(localStorage.getItem("irctcPlans")) || [])[i];
       if(!plan) return;
       const subject = encodeURIComponent("IRCTC Booking Plan");
@@ -1190,6 +1315,7 @@ Official: https://www.irctc.co.in`;
       return params.toString();
     }
     function bookmarkThisPlan(){
+      if(!requireUserName(bookmarkThisPlan)) return;
       const qp = buildPlanParams();
       if(!qp){ alert("Select a date first"); return; }
       const newUrl = location.pathname + "?" + qp;
@@ -1199,6 +1325,7 @@ Official: https://www.irctc.co.in`;
       setTimeout(()=>hint.innerText="", 6000);
     }
     async function copyShareLink(){
+      if(!requireUserName(copyShareLink)) return;
       const qp = buildPlanParams();
       if(!qp){ alert("Select a date first"); return; }
       const link = location.origin + location.pathname + "?" + qp;
@@ -1280,6 +1407,11 @@ Official: https://www.irctc.co.in`;
       };
       reader.readAsText(file);
     }
+
+    document.getElementById("nameSubmitBtn").addEventListener("click", saveUserNameFromPrompt);
+    document.getElementById("nameInput").addEventListener("keydown", (e)=>{
+      if(e.key === "Enter") saveUserNameFromPrompt();
+    });
 
     // Initial render
     renderCalendar();
