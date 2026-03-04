@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IRCTC Booking Planner</title>
+
+  <!-- ✅ Tailwind + Flatpickr + jsPDF -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Make Tailwind respect `dark` class -->
+  <script>
+    tailwind.config = { darkMode: 'class' };
+  </script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    /* ===== TODAY in calendar ===== */
+    .today-highlight{
+      background:#bfdbfe !important;     /* blue-200 */
+      border-radius:8px;
+      font-weight:600;
+      color:#1e3a8a !important;          /* blue-900 */
+    }
+
+    /* ===== Calendar Cells (hover & selected) ===== */
+    .cal-cell{
+      border-radius:10px;
+      padding:.5rem;
+      transition:background-color .15s,color .15s,box-shadow .15s,border-color .15s;
+    }
+    /* Hover (light) */
+    .cal-cell:hover{
+      background:#eff6ff !important;     /* blue-50 */
+      color:#1d4ed8 !important;          /* blue-700 */
+    }
+    /* Hover (dark) */
+    .dark .cal-cell:hover{
+      background:#111827 !important;     /* slate-900 */
+      color:#f1f5f9 !important;          /* slate-100 */
+    }
+
+    /* Selected (light) */
+    .selected-cell{
+      background:#eaf2ff !important;     /* softer blue-50 */
+      border:1px solid #93c5fd !important; /* blue-300 */
+      box-shadow:0 0 0 2px rgba(59,130,246,.14);
+    }
+    /* Selected (dark) */
+    .dark .selected-cell{
+      background:#0f172a !important;     /* slate-900 */
+      border:1px solid #38bdf8 !important; /* sky-400 */
+      box-shadow:0 0 0 2px rgba(56,189,248,.22);
+      color:#e5e7eb !important;
+    }
+
+    /* ===== Holiday dot + tooltip ===== */
+    .holiday-tip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px}
+    .holiday-dot{
+      width:7px;height:7px;background:#16a34a;border-radius:9999px;
+      box-shadow:0 0 0 2px #ffffff;      /* ring on light bg */
+    }
+    .dark .holiday-dot{ box-shadow:0 0 0 2px #0b1220; } /* ring on dark bg */
+    .tip-bubble{
+      position:absolute;left:50%;transform:translateX(-50%);bottom:-30px;
+      background:#0f172a;color:#f8fafc;
+      padding:4px 8px;border-radius:6px;font-size:11px;line-height:1;
+      border:1px solid rgba(148,163,184,.4);
+      opacity:0;pointer-events:none;white-space:nowrap;transition:opacity .12s ease;
+    }
+    .holiday-tip:hover .tip-bubble{opacity:1}
+    .cal-cell:hover .tip-bubble{opacity:1}
+
+    /* ===== Panels & inputs (dark) ===== */
+    .dark body{ background:#0b1220; color:#e5e7eb; }
+    .dark .panel{ background:#0b1220; color:#e5e7eb; }
+    .field, .dark .field{
+      background:#0f172a !important; border-color:#3b4252 !important; color:#e5e7eb !important;
+    }
+
+    /* Travel/Booking cards (strong, readable) */
+    .card-title{ font-size:11px; letter-spacing:.04em; text-transform:uppercase; font-weight:700; }
+    .card-value{ font-size:1.375rem; font-weight:700; }
+
+    /* Light cards */
+    .card-blue{ background:#eff6ff; border:1px solid #bfdbfe; }   /* Travel */
+    .card-green{ background:#ecfdf5; border:1px solid #a7f3d0; }   /* Booking */
+    .card-blue .card-title{ color:#1e3a8a; }
+    .card-green .card-title{ color:#065f46; }
+    .card-blue .card-value{ color:#0f172a; }
+    .card-green .card-value{ color:#052e21; }
+
+    /* Dark cards */
+    .dark .card-blue{ background:#0f172a !important; border-color:#1d4ed8 !important; }
+    .dark .card-green{ background:#0b1f1a !important; border-color:#059669 !important; }
+    .dark .card-blue .card-title{ color:#c7d2fe !important; }
+    .dark .card-green .card-title{ color:#bbf7d0 !important; }
+    .dark .card-blue .card-value,
+    .dark .card-green .card-value{ color:#e5e7eb !important; }
+
+    /* Labels */
+    .label-strong{ color:#0f172a; font-weight:600; }
+    .dark .label-strong{ color:#f1f5f9; }
+    .muted{ color:#475569; }
+    .dark .muted{ color:#cbd5e1; }
+
+    /* ===== Share icons: solid backgrounds = clear logos ===== */
+    .icon-btn{
+      width:40px;height:40px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;
+      box-shadow:0 0 0 1px rgba(0,0,0,.04) inset;
+    }
+    .icon-btn-sm{
+      width:32px;height:32px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;
+      box-shadow:0 0 0 1px rgba(0,0,0,.04) inset;
+    }
+    .icon-wa{ background:#22c55e; color:#ffffff; }       /* WhatsApp */
+    .icon-mail{ background:#6366f1; color:#ffffff; }     /* Email */
+    .icon-gcal{ background:#0ea5e9; color:#ffffff; }     /* Google Calendar */
+    .icon-ics{ background:#10b981; color:#ffffff; }      /* ICS */
+    .icon-bookmark{ background:#f59e0b; color:#111827; } /* Bookmark */
+    .icon-link{ background:#e5e7eb; color:#111827; }     /* Copy Link */
+    .icon-btn:hover{ filter:brightness(1.06); }
+    .icon-btn-sm:hover{ filter:brightness(1.06); }
+  </style>
+</head>
+
+<body class="bg-gray-100 text-gray-800 transition-all duration-300">
+
+  <!-- ================= NAVIGATION ================= -->
+  <div class="flex justify-between items-center bg-white shadow px-6 py-4 dark:panel">
+    <h1 class="text-xl font-bold text-blue-600">IRCTC Booking Planner</h1>
+
+    <div class="flex flex-wrap gap-3 items-center">
+      <!-- Holidays toggle & import -->
+      <div class="flex items-center gap-2 text-sm">
+        <label for="toggleHolidays" class="font-medium">Holidays (TN)</label>
+        <input id="toggleHolidays" type="checkbox" class="w-4 h-4 accent-green-600" checked>
+        <label for="holidayFile" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded cursor-pointer hover:bg-emerald-100">
+          Import Holidays
+        </label>
+        <input id="holidayFile" type="file" accept="application/json" class="hidden">
+      </div>
+
+      <button onclick="showCalculator()"
+        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">
+        Calculator
+      </button>
+
+      <button onclick="showSavedView()"
+        class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm">
+        Saved Plans
+      </button>
+
+      <button onclick="toggleDark()"
+        class="px-4 py-2 bg-gray-200 rounded-lg text-sm">
+        🌙 Mode
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= CALCULATOR VIEW ================= -->
+  <div id="calculatorView">
+    <div class="flex flex-col lg:flex-row">
+      <!-- LEFT CALENDAR -->
+      <div class="w-full lg:w-2/3 p-6 bg-white shadow dark:panel">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-semibold text-blue-600">Select Date</h2>
+
+          <div class="flex items-center gap-2">
+            <input type="text" id="quickPicker"
+              class="border px-3 py-2 rounded-lg text-sm field"
+              placeholder="Jump to date 📅">
+
+            <div class="text-xs text-gray-600 hidden lg:flex items-center gap-1 dark:text-slate-300">
+              <span class="holiday-dot"></span>
+              <span>Leave/Holiday (TN)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center mb-3">
+          <button onclick="prevMonth()" class="px-3 py-1 bg-gray-200 rounded">◀</button>
+          <h2 id="monthYear" class="text-lg font-semibold"></h2>
+          <button onclick="nextMonth()" class="px-3 py-1 bg-gray-200 rounded">▶</button>
+        </div>
+
+        <div id="calendar" class="grid grid-cols-7 gap-2 text-center"></div>
+
+        <!-- Legend for smaller screens -->
+        <div class="mt-3 text-xs text-gray-600 lg:hidden flex items-center gap-1 dark:text-slate-300">
+          <span class="holiday-dot"></span>
+          <span>Leave/Holiday (TN)</span>
+        </div>
+
+        <!-- Dynamic 3-month leave list -->
+        <div class="mt-4 border rounded-lg p-3 bg-slate-50 dark:bg-slate-900/40 dark:border-slate-700">
+          <div class="text-sm font-semibold mb-2 text-slate-700 dark:text-slate-200">Leave List (Current + Next 2 Months)</div>
+          <div id="threeMonthLeaves" class="text-sm text-slate-700 dark:text-slate-200"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT PANEL -->
+      <div class="w-full lg:w-1/3 p-6 bg-blue-50 panel shadow dark:panel">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold mb-4 text-indigo-700 dark:text-indigo-200">Action Panel</h2>
+
+          <!-- Pinned Save Plan -->
+          <button onclick="savePlan()"
+            class="px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm shadow-sm">
+            💾 Save Plan
+          </button>
+        </div>
+
+        <div class="flex gap-2 mb-4">
+          <button onclick="setMode('travel')" id="travelBtn"
+            class="px-3 py-2 rounded-lg text-sm border">Travel Mode</button>
+
+          <button onclick="setMode('booking')" id="bookingBtn"
+            class="px-3 py-2 rounded-lg text-sm border">Booking Mode</button>
+        </div>
+
+        <!-- Cards -->
+        <div class="grid grid-cols-1 gap-3 mb-2">
+          <div class="rounded-lg px-3 py-2 card-blue">
+            <div class="flex items-center gap-2">
+              <!-- Train icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-700 dark:text-blue-300" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2c3.87 0 7 1.07 7 4v7c0 2.21-1.79 4-4 4l1.8 1.8a1 1 0 1 1-1.42 1.4L13 18H11l-2.38 2.2a1 1 0 1 1-1.32-1.5L9 17c-2.21 0-4-1.79-4-4V6c0-2.93 3.13-4 7-4Zm5 4c0-1.05-2.4-2-5-2s-5 .95-5 2v2h10V6Z"/>
+              </svg>
+              <div class="card-title">TRAVEL DATE</div>
+            </div>
+            <div id="travelDate" class="card-value">--</div>
+          </div>
+
+          <div class="rounded-lg px-3 py-2 card-green">
+            <div class="flex items-center gap-2">
+              <!-- Calendar/booking icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-emerald-700 dark:text-emerald-300" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h1V3a1 1 0 0 1 1-1Zm14 8H3v8a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-8Z"/>
+              </svg>
+              <div class="card-title">BOOKING DATE</div>
+            </div>
+            <div id="bookingDate" class="card-value">--</div>
+          </div>
+        </div>
+
+        <div class="mt-2">
+          <p class="label-strong">Booking Opens At:</p>
+          <p class="label-strong">08:00 AM (IRCTC)</p>
+        </div>
+
+        <div class="mt-2">
+          <p class="font-semibold">Days Remaining:</p>
+          <p id="countdown" class="text-orange-700 font-semibold dark:text-amber-300">--</p>
+        </div>
+
+        <div class="mt-2">
+          <p class="font-semibold">ARP Type:</p>
+          <select id="arpSelect" class="w-full border p-2 rounded field">
+            <option value="60" selected>Normal (60 Days)</option>
+            <option value="120">Special (120 Days)</option>
+          </select>
+        </div>
+
+        <!-- Share this plan -->
+        <div class="pt-4">
+          <p class="font-semibold mb-2">Share this plan:</p>
+          <div class="flex items-center gap-3 flex-wrap">
+            <button title="Share on WhatsApp" onclick="shareWhatsApp()" class="icon-btn icon-wa" aria-label="WhatsApp">
+              <!-- WhatsApp (white on green) -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" style="color:#fff">
+                <path d="M20.52 3.48A11.94 11.94 0 0 0 12.02.06C5.42.06.05 5.43.05 12.02c0 2.12.55 4.22 1.6 6.06L.02 24l6.08-1.58a11.94 11.94 0 0 0 5.92 1.56h.01c6.59 0 11.96-5.37 11.96-11.96 0-3.2-1.25-6.2-3.47-8.54Z"/>
+                <path d="M17.5 14.55c-.3-.15-1.77-.87-2.05-.97-.27-.1-.46-.15-.66.15-.2.29-.76.97-.94 1.16-.17.19-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.5-.89-.79-1.49-1.76-1.67-2.06-.17-.29-.02-.45.13-.6.13-.13.3-.34.45-.52.15-.17.2-.29.3-.48.1-.19.05-.36-.02-.51-.07-.15-.66-1.6-.9-2.19-.24-.58-.48-.5-.66-.51h-.57c-.19 0-.5.07-.76.36s-1 1-1 2.45 1.02 2.84 1.16 3.03c.15.19 2.01 3.06 4.86 4.29.68.29 1.21.46 1.62.59.68.22 1.3.19 1.79.12.55-.08 1.77-.72 2.02-1.42.25-.7.25-1.3.18-1.42-.07-.12-.27-.19-.57-.34Z"/>
+              </svg>
+            </button>
+
+            <button title="Send Email" onclick="shareEmail()" class="icon-btn icon-mail" aria-label="Email">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" style="color:#fff">
+                <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 2v.01L12 12 4 6.01V6h16ZM4 18V8l8 6 8-6v10H4Z"/>
+              </svg>
+            </button>
+
+            <button title="Add to Google Calendar" onclick="addToGoogleCalendar()" class="icon-btn icon-gcal" aria-label="Google Calendar">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" style="color:#fff">
+                <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h1V3a1 1 0 0 1 1-1Zm14 8H3v8a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-8Z"/>
+              </svg>
+            </button>
+
+            <button title="Download .ICS" onclick="downloadICSFile()" class="icon-btn icon-ics" aria-label=".ICS">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" style="color:#fff">
+                <path d="M12 3a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4.001 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L11 12.586V4a1 1 0 0 1 1-1Z"/>
+                <path d="M5 20a2 2 0 0 1-2-2v-2a1 1 0 1 1 2 0v2h14v-2a1 1 0 1 1 2 0v2a2 2 0 0 1-2 2H5Z"/>
+              </svg>
+            </button>
+
+            <button title="Bookmark this plan" onclick="bookmarkThisPlan()" class="icon-btn icon-bookmark" aria-label="Bookmark">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 2a2 2 0 0 0-2 2v18l8-4 8 4V4a2 2 0 0 0-2-2H6Z"/>
+              </svg>
+            </button>
+
+            <button title="Copy sharable link" onclick="copyShareLink()" class="icon-btn icon-link" aria-label="Copy Link">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M10.59 13.41a1 1 0 0 0 1.41 0l3-3a3 3 0 0 0-4.24-4.24l-1.9 1.9a1 1 0 1 1-1.42-1.42l1.9-1.9a5 5 0 1 1 7.07 7.07l-3 3a1 1 0 0 1-1.42-1.42l3-3a3 3 0 0 0-4.24-4.24l-1.9 1.9a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l1.9-1.9a1 1 0 0 1 1.42 1.42l-3 3a3 3 0 0 1-4.24 0 3 3 0 0 1 0-4.24l1.9-1.9Z"/>
+              </svg>
+            </button>
+          </div>
+          <p id="bookmarkHint" class="text-xs text-gray-500 mt-2"></p>
+        </div>
+
+        <!-- Downloads -->
+        <div class="flex flex-col gap-2 pt-4">
+          <div class="flex gap-2">
+            <button onclick="downloadTXT()"
+              class="flex-1 bg-gray-200 p-2 rounded-lg text-sm dark:bg-slate-700 dark:text-slate-100">📝 Download TXT</button>
+
+            <button onclick="downloadAllInOnePDF()"
+              class="flex-1 bg-green-600 text-white p-2 rounded-lg text-sm">📄 Download PDF</button>
+          </div>
+          <button onclick="downloadCombinedICSFile()"
+            class="w-full bg-emerald-600 text-white p-2 rounded-lg text-sm">
+            📅 Download ICS (Booking + Travel)
+          </button>
+        </div>
+
+        <div class="text-xs text-gray-600 pt-4 flex items-center gap-2 dark:text-slate-300">
+          <span>Official Website:</span>
+          <a href="https://www.irctc.co.in" target="_blank" class="text-blue-600 underline">https://www.irctc.co.in</a>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M14 3h7m0 0v7m0-7L10 14M5 7v10a2 2 0 0 0 2 2h10"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SAVED VIEW ================= -->
+  <div id="savedView" class="hidden p-6 bg-gray-50 min-h-screen dark:panel">
+    <h2 class="text-2xl font-bold mb-6 text-indigo-700 dark:text-indigo-200">Saved Travel Plans</h2>
+
+    <div class="overflow-x-auto bg-white shadow rounded-lg dark:panel">
+      <table class="min-w-full text-sm text-left border dark:border-slate-700">
+        <thead class="bg-indigo-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200">
+          <tr>
+            <th class="p-3 border dark:border-slate-700">#</th>
+            <th class="p-3 border dark:border-slate-700">Travel Date</th>
+            <th class="p-3 border dark:border-slate-700">Booking Date</th>
+            <th class="p-3 border dark:border-slate-700">ARP</th>
+            <th class="p-3 border text-center dark:border-slate-700">Share</th>
+            <th class="p-3 border dark:border-slate-700">Action</th>
+          </tr>
+        </thead>
+        <tbody id="savedTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="mt-6 flex flex-wrap gap-3">
+      <button onclick="downloadBulkPDF()"
+        class="px-5 py-2 bg-green-600 text-white rounded-lg">
+        Download All PDF
+      </button>
+
+      <button onclick="exportPlans()"
+        class="px-5 py-2 bg-gray-200 rounded-lg dark:bg-slate-700 dark:text-slate-100">
+        Export Plans (.json)
+      </button>
+
+      <label class="px-5 py-2 bg-gray-200 rounded-lg cursor-pointer dark:bg-slate-700 dark:text-slate-100">
+        Import Plans (.json)
+        <input id="plansFile" type="file" accept="application/json" class="hidden" onchange="importPlans(event)">
+      </label>
+
+      <button onclick="clearAllPlans()"
+        class="px-5 py-2 bg-red-500 text-white rounded-lg">
+        Clear All
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= JAVASCRIPT ================= -->
+  <script>
+    let currentDate = new Date();
+    let selectedDate = null;
+    let travelDateObj = null;
+    let bookingDateObj = null;
+    let mode = "booking";
+    let showHolidays = true;
+
+    // Holidays TN - sample (2026). Replace/import per year.
+    let tnHolidays = [
+      {"date":"2026-01-01","label":"New Year"},
+      {"date":"2026-01-14","label":"Pongal"},
+      {"date":"2026-01-15","label":"Thiruvalluvar Day"},
+      {"date":"2026-01-16","label":"Uzhavar Thirunal"},
+      {"date":"2026-01-26","label":"Republic Day"},
+      {"date":"2026-04-14","label":"Tamil New Year / Ambedkar Jayanthi"},
+      {"date":"2026-05-01","label":"Labour Day"},
+      {"date":"2026-08-15","label":"Independence Day"},
+      {"date":"2026-09-17","label":"Vinayagar Chaturthi"},
+      {"date":"2026-10-02","label":"Gandhi Jayanthi"},
+      {"date":"2026-10-18","label":"Ayudha Pooja"},
+      {"date":"2026-10-19","label":"Vijaya Dashami"},
+      {"date":"2026-11-08","label":"Deepavali"},
+      {"date":"2026-12-25","label":"Christmas"}
+    ];
+
+    /* ===== Restore from URL (bookmark link) ===== */
+    (function restoreFromUrl(){
+      const params = new URLSearchParams(location.search);
+      const b = params.get('booking'); const t = params.get('travel');
+      const m = params.get('mode'); const arp = params.get('arp');
+      if (m) mode = m;
+      if (arp) { const s = document.getElementById("arpSelect"); if (s) s.value = arp; }
+      if (b || t) {
+        if (b) { setMode('booking'); selectedDate = parseISODate(b) || new Date(b); }
+        else if (t) { setMode('travel'); selectedDate = parseISODate(t) || new Date(t); }
+        if (!selectedDate || Number.isNaN(selectedDate.getTime())) return;
+        currentDate = new Date(selectedDate);
+        renderCalendar();
+        calculate();
+      }
+    })();
+
+    /* ===== UI State ===== */
+    function setMode(newMode){
+      mode = newMode;
+      const t = document.getElementById("travelBtn");
+      const b = document.getElementById("bookingBtn");
+
+      t.className = "px-3 py-2 rounded-lg text-sm border";
+      b.className = "px-3 py-2 rounded-lg text-sm border";
+
+      if(newMode === "travel"){
+        t.classList.add("bg-blue-600","text-white");
+      }else{
+        b.classList.add("bg-purple-600","text-white");
+      }
+    }
+    setMode("booking");
+
+    /* ===== Calendar Rendering ===== */
+    function renderCalendar(){
+      const cal = document.getElementById("calendar");
+      cal.innerHTML = "";
+
+      document.getElementById("monthYear").innerText =
+        currentDate.toLocaleString("default",{month:"long",year:"numeric"});
+
+      const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+      const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 0).getDate();
+
+      // Weekday headers (non-clickable)
+      ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d=>{
+        const div=document.createElement("div");
+        div.className="font-bold text-gray-500 dark:text-slate-300";
+        div.innerText=d;
+        cal.appendChild(div);
+      });
+
+      for(let i=0; i<firstDay; i++) cal.appendChild(document.createElement("div"));
+
+      // Prepare lookup for holidays
+      const holidayMap = new Map();
+      if(showHolidays){
+        tnHolidays.forEach(h=>{
+          const d = new Date(h.date + "T00:00:00");
+          if (d.getFullYear() === currentDate.getFullYear() &&
+              d.getMonth() === currentDate.getMonth()) {
+            holidayMap.set(d.getDate(), h.label);
+          }
+        });
+      }
+
+      for(let day=1; day<=daysInMonth; day++){
+        const date=new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+        const div=document.createElement("div");
+        div.className="cal-cell cursor-pointer rounded-lg flex flex-col items-center transition-colors";
+
+        // Day number
+        const num = document.createElement("div");
+        num.textContent = day;
+        if(date.toDateString()===new Date().toDateString()){
+          num.classList.add("today-highlight","inline-flex","items-center","justify-center","px-1.5");
+        }
+        div.appendChild(num);
+
+        // Holiday dot with tooltip
+        const line = document.createElement("div");
+        line.style.height="8px";
+        if(holidayMap.has(day)){
+          const wrap = document.createElement("span");
+          wrap.className = "holiday-tip";
+          const dot = document.createElement("span");
+          dot.className = "holiday-dot";
+          const tip = document.createElement("span");
+          tip.className = "tip-bubble";
+          tip.innerText = holidayMap.get(day);
+          wrap.appendChild(dot); wrap.appendChild(tip);
+          line.appendChild(wrap);
+        }
+        div.appendChild(line);
+
+        // Selected cell
+        if (selectedDate &&
+            selectedDate.getFullYear()===date.getFullYear() &&
+            selectedDate.getMonth()===date.getMonth() &&
+            selectedDate.getDate()===date.getDate()){
+          div.classList.add("selected-cell");
+        }
+
+        div.onclick=()=>selectDate(date, div);
+        cal.appendChild(div);
+      }
+
+      renderThreeMonthLeaveList();
+    }
+    function renderThreeMonthLeaveList(){
+      const container = document.getElementById("threeMonthLeaves");
+      if(!container) return;
+      container.innerHTML = "";
+
+      const buckets = [];
+      for(let offset=0; offset<3; offset++){
+        const mDate = new Date(currentDate.getFullYear(), currentDate.getMonth()+offset, 1);
+        buckets.push({
+          year: mDate.getFullYear(),
+          month: mDate.getMonth(),
+          monthLabel: mDate.toLocaleString("en-IN", { month: "long", year: "numeric" }),
+          items: []
+        });
+      }
+
+      tnHolidays.forEach(h=>{
+        const d = parseISODate(h.date) || new Date(h.date + "T00:00:00");
+        if(!d || Number.isNaN(d.getTime())) return;
+        const b = buckets.find(x => x.year === d.getFullYear() && x.month === d.getMonth());
+        if(b){
+          b.items.push({ date: new Date(d), label: h.label });
+        }
+      });
+
+      buckets.forEach(b=>{
+        b.items.sort((a, z)=>a.date-z.date);
+        const section = document.createElement("div");
+        section.className = "mb-2 last:mb-0";
+
+        const title = document.createElement("div");
+        title.className = "font-semibold text-slate-800 dark:text-slate-100";
+        title.textContent = b.monthLabel;
+        section.appendChild(title);
+
+        if(b.items.length===0){
+          const none = document.createElement("div");
+          none.className = "text-xs text-slate-500 dark:text-slate-400 mb-1";
+          none.textContent = "No holidays listed";
+          section.appendChild(none);
+        }else{
+          b.items.forEach(item=>{
+            const row = document.createElement("div");
+            row.className = "text-xs flex items-start gap-2 mb-1";
+
+            const dt = document.createElement("span");
+            dt.className = "font-medium text-slate-700 dark:text-slate-200 min-w-[70px]";
+            dt.textContent = item.date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+
+            const label = document.createElement("span");
+            label.className = "text-slate-700 dark:text-slate-300";
+            label.textContent = item.label;
+
+            row.appendChild(dt);
+            row.appendChild(label);
+            section.appendChild(row);
+          });
+        }
+        container.appendChild(section);
+      });
+    }
+
+    function selectDate(date, el){
+      selectedDate = date;
+      document.querySelectorAll("#calendar .selected-cell").forEach(e=>e.classList.remove("selected-cell"));
+      el.classList.add("selected-cell");
+      calculate();
+    }
+
+    /* ===== Planner Logic ===== */
+    function calculate(){
+      if(!selectedDate) return;
+      const arp = parseInt(document.getElementById("arpSelect").value);
+
+      let travel, booking;
+      if(mode==="travel"){
+        travel = new Date(selectedDate);
+        booking = new Date(travel);
+        booking.setDate(travel.getDate() - arp);
+      }else{
+        booking = new Date(selectedDate);
+        travel = new Date(booking);
+        travel.setDate(booking.getDate() + arp);
+      }
+
+      travelDateObj = travel;
+      bookingDateObj = booking;
+      document.getElementById("travelDate").innerText = formatDisplayDate(travelDateObj);
+      document.getElementById("bookingDate").innerText = formatDisplayDate(bookingDateObj);
+
+      const diff = Math.ceil((stripTime(booking) - stripTime(new Date()))/(1000*60*60*24));
+      document.getElementById("countdown").innerText = diff >= 0 ? `${diff} days remaining` : "Already Open";
+    }
+
+    document.getElementById("arpSelect").addEventListener("change", calculate);
+    document.getElementById("toggleHolidays").addEventListener("change", (e)=>{
+      showHolidays = e.target.checked;
+      renderCalendar();
+    });
+    document.getElementById("holidayFile").addEventListener("change", importHolidaysJSON);
+
+    function prevMonth(){ currentDate.setMonth(currentDate.getMonth()-1); renderCalendar(); }
+    function nextMonth(){ currentDate.setMonth(currentDate.getMonth()+1); renderCalendar(); }
+
+    // Flatpickr quick jump
+    flatpickr("#quickPicker",{ onChange:(d)=>{ if(d.length){ currentDate = d[0]; renderCalendar(); } } });
+
+    /* ===== Save & Saved View ===== */
+    function savePlan(){
+      if(!selectedDate) return alert("Select date first");
+      const plan={
+        travel: travelDateObj ? isoDate(travelDateObj) : "",
+        booking: bookingDateObj ? isoDate(bookingDateObj) : "",
+        arp: document.getElementById("arpSelect").value
+      };
+      let plans = JSON.parse(localStorage.getItem("irctcPlans")) || [];
+      plans.push(plan);
+      localStorage.setItem("irctcPlans", JSON.stringify(plans));
+      alert("Plan Saved!");
+    }
+
+    function showCalculator(){
+      document.getElementById("calculatorView").classList.remove("hidden");
+      document.getElementById("savedView").classList.add("hidden");
+    }
+
+    function showSavedView(){
+      document.getElementById("calculatorView").classList.add("hidden");
+      document.getElementById("savedView").classList.remove("hidden");
+      loadSavedTable();
+    }
+
+    function loadSavedTable(){
+      const body = document.getElementById("savedTableBody");
+      body.innerHTML = "";
+      const plans = JSON.parse(localStorage.getItem("irctcPlans")) || [];
+
+      plans.forEach((p,i)=>{
+        const travelText = formatSavedDate(p.travel);
+        const bookingText = formatSavedDate(p.booking);
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td class="p-3 border dark:border-slate-700">${i+1}</td>
+          <td class="p-3 border dark:border-slate-700">${travelText}</td>
+          <td class="p-3 border dark:border-slate-700">${bookingText}</td>
+          <td class="p-3 border dark:border-slate-700">${p.arp} Days</td>
+
+          <td class="p-3 border text-center dark:border-slate-700">
+            <button title="WhatsApp" onclick="shareWhatsAppSaved(${i})" class="icon-btn-sm icon-wa mr-1" aria-label="WhatsApp">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" style="color:#fff">
+                <path d="M20.52 3.48A11.94 11.94 0 0 0 12.02.06C5.42.06.05 5.43.05 12.02c0 2.12.55 4.22 1.6 6.06L.02 24l6.08-1.58a11.94 11.94 0 0 0 5.92 1.56h.01c6.59 0 11.96-5.37 11.96-11.96 0-3.2-1.25-6.2-3.47-8.54Z"/>
+                <path d="M17.5 14.55c-.3-.15-1.77-.87-2.05-.97-.27-.1-.46-.15-.66.15-.2.29-.76.97-.94 1.16-.17.19-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.5-.89-.79-1.49-1.76-1.67-2.06-.17-.29-.02-.45.13-.6.13-.13.3-.34.45-.52.15-.17.2-.29.3-.48.1-.19.05-.36-.02-.51-.07-.15-.66-1.6-.9-2.19-.24-.58-.48-.5-.66-.51h-.57c-.19 0-.5.07-.76.36s-1 1-1 2.45 1.02 2.84 1.16 3.03c.15.19 2.01 3.06 4.86 4.29.68.29 1.21.46 1.62.59.68.22 1.3.19 1.79.12.55-.08 1.77-.72 2.02-1.42.25-.7.25-1.3.18-1.42-.07-.12-.27-.19-.57-.34Z"/>
+              </svg>
+            </button>
+
+            <button title="Email" onclick="shareEmailSaved(${i})" class="icon-btn-sm icon-mail" aria-label="Email">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" style="color:#fff">
+                <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 2v.01L12 12 4 6.01V6h16ZM4 18V8l8 6 8-6v10H4Z"/>
+              </svg>
+            </button>
+          </td>
+
+          <td class="p-3 border dark:border-slate-700">
+            <button onclick="deletePlan(${i})" class="text-red-600 text-xs">Delete</button>
+          </td>`;
+        body.appendChild(row);
+      });
+    }
+
+    function deletePlan(i){
+      let plans = JSON.parse(localStorage.getItem("irctcPlans")) || [];
+      plans.splice(i,1);
+      localStorage.setItem("irctcPlans", JSON.stringify(plans));
+      loadSavedTable();
+    }
+
+    function clearAllPlans(){
+      localStorage.removeItem("irctcPlans");
+      loadSavedTable();
+    }
+
+    function exportPlans(){
+      const plans = JSON.parse(localStorage.getItem("irctcPlans")) || [];
+      const blob = new Blob([JSON.stringify(plans,null,2)], {type:"application/json"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "irctc_plans_backup.json";
+      a.click();
+    }
+    function importPlans(evt){
+      const f = evt.target.files[0]; if (!f) return;
+      const reader = new FileReader();
+      reader.onload = e=>{
+        try{
+          const arr = JSON.parse(e.target.result);
+          if(!Array.isArray(arr)) throw new Error("Invalid file");
+          localStorage.setItem("irctcPlans", JSON.stringify(arr));
+          alert("Plans imported"); loadSavedTable();
+        }catch(err){ alert("Import failed: " + err.message); }
+      };
+      reader.readAsText(f);
+    }
+
+    /* ===== Downloads / TXT ===== */
+    function downloadTXT(){
+      if(!selectedDate) return alert("Select date first");
+      const content=`IRCTC Booking Plan
+Booking: ${document.getElementById("bookingDate").innerText}
+Travel: ${document.getElementById("travelDate").innerText}
+Opens: 08:00 AM
+Website: https://www.irctc.co.in`;
+      const blob=new Blob([content],{type:"text/plain"});
+      const link=document.createElement("a");
+      link.href=URL.createObjectURL(blob);
+      link.download="IRCTC_Plan.txt";
+      link.click();
+    }
+
+    async function downloadBulkPDF(){
+      const plans = JSON.parse(localStorage.getItem("irctcPlans")) || [];
+      if(plans.length===0) return alert("No saved plans");
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const sortedPlans = [...plans].sort((a, b)=>{
+        const da = parseISODate(a.booking) || parseLooseDate(a.booking);
+        const db = parseISODate(b.booking) || parseLooseDate(b.booking);
+        if(da && db) return da - db;
+        if(da && !db) return -1;
+        if(!da && db) return 1;
+        return 0;
+      });
+
+      sortedPlans.forEach((p, i)=>{
+        if(i > 0) doc.addPage();
+        const isLast = i === sortedPlans.length - 1;
+
+        const bookingObj = parseISODate(p.booking) || parseLooseDate(p.booking);
+        const travelObj = parseISODate(p.travel) || parseLooseDate(p.travel);
+
+        const bookingText = bookingObj ? formatDisplayDate(bookingObj) : (p.booking || "--");
+        const travelText = travelObj ? formatDisplayDate(travelObj) : (p.travel || "--");
+        const arpText = (p.arp || "--") + " Days";
+        const statusText = bookingObj ? getStatusText(bookingObj) : "Status: Unknown";
+        const accent = getPlanAccent(i);
+
+        renderPlanPDFPage(doc, {
+          bookingText,
+          travelText,
+          arpText,
+          statusText,
+          subtitle: `Booking ${i+1} of ${sortedPlans.length} (sorted by booking date)`,
+          showMeta: isLast,
+          showNotes: isLast,
+          accent,
+          bookingDateObj: bookingObj,
+          travelDateObj: travelObj
+        });
+      });
+
+      doc.save("IRCTC_All_Plans.pdf");
+    }
+
+    /* ===== Professional All-in-One PDF (Booking first) ===== */
+    function downloadAllInOnePDF(){
+      if(!selectedDate) return alert("Select date first");
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const bookingText = bookingDateObj ? formatDisplayDate(bookingDateObj) : document.getElementById("bookingDate").innerText;
+      const travelText = travelDateObj ? formatDisplayDate(travelDateObj) : document.getElementById("travelDate").innerText;
+      const arpText = document.getElementById("arpSelect").value + " Days";
+      const statusText = "Status: " + document.getElementById("countdown").innerText;
+
+      renderPlanPDFPage(doc, {
+        bookingText, travelText, arpText, statusText,
+        showMeta: true, showNotes: true,
+        bookingDateObj, travelDateObj
+      });
+
+      doc.save("IRCTC_Professional_Plan.pdf");
+    }
+
+    function renderPlanPDFPage(doc, {
+      bookingText, travelText, arpText, statusText, subtitle = "",
+      showMeta = true, showNotes = true, accent = { header:[37,99,235], side:[230,244,255] },
+      bookingDateObj = null, travelDateObj = null
+    }){
+      const blue = accent.header || [37,99,235];
+      const side = accent.side || [230,244,255];
+      const textDark = [20,24,35];
+
+      doc.setFillColor(side[0],side[1],side[2]); doc.rect(0,0,10,297,'F');
+      doc.setFillColor(blue[0],blue[1],blue[2]); doc.rect(10,0,200,24,'F');
+      doc.setTextColor(255,255,255); doc.setFontSize(16);
+      doc.text("IRCTC Booking Planner — Plan Summary", 112, 14, {align:"center"});
+      if(subtitle){
+        doc.setFontSize(10);
+        doc.text(subtitle, 112, 21, {align:"center"});
+      }
+
+      doc.setTextColor(textDark[0],textDark[1],textDark[2]);
+      let y = 36;
+
+      drawPDFCard(doc, textDark, "BOOKING DATE", bookingText, 20, y, [16,185,129]); y += 30;
+      drawPDFCard(doc, textDark, "TRAVEL DATE", travelText, 20, y, [37,99,235]); y += 30;
+
+      if(showMeta){
+        doc.setFontSize(12);
+        doc.text("Advance Reservation Period (ARP): " + arpText, 20, y); y += 8;
+        doc.text("Booking Opens At: 08:00 AM (IRCTC)", 20, y); y += 8;
+        doc.text(statusText, 20, y); y += 12;
+      }else{
+        doc.setFontSize(11);
+        doc.text("Summary page only. Detailed notes and status are on the final page.", 20, y); y += 12;
+      }
+
+      if(showNotes){
+        doc.setFontSize(13); doc.text("Notes & Guidance", 20, y); y+=6;
+        doc.setDrawColor(220,222,226); doc.line(20,y,190,y); y+=8; doc.setFontSize(11);
+        [
+          "Log in to IRCTC 10–15 minutes before opening time.",
+          "Keep passenger details and payment method ready.",
+          "Verify ARP for your train; some may differ.",
+          "Tatkal has different timings and rules.",
+          "Re-check dates on IRCTC before booking."
+        ].forEach(t=>{ doc.circle(22,y-2,1,'F'); doc.text(t, 26, y, {maxWidth: 170}); y+=6; });
+      }
+
+      y += 4;
+      y = addCalendarLinksToPDF(doc, y, bookingDateObj, travelDateObj);
+
+      y += 8; doc.setDrawColor(235,236,238); doc.line(20,y,190,y); y+=8;
+      doc.setFontSize(10);
+      doc.text("IRCTC: https://www.irctc.co.in", 20, y); y+=6;
+      doc.text("Generated by IRCTC Booking Planner", 20, y);
+    }
+    function addCalendarLinksToPDF(doc, y, bookingDateObj, travelDateObj){
+      doc.setFontSize(11);
+      doc.setTextColor(30,64,175);
+      doc.text("Calendar Actions", 20, y); y += 6;
+
+      if(bookingDateObj){
+        const bookingUrl = buildGoogleCalendarLink({ type:"booking", bookingDate:bookingDateObj, travelDate:travelDateObj });
+        doc.textWithLink("[Calendar] Add Booking Event", 20, y, { url: bookingUrl });
+        y += 6;
+      }
+      if(travelDateObj){
+        const travelUrl = buildGoogleCalendarLink({ type:"travel", travelDate:travelDateObj, bookingDate:bookingDateObj });
+        doc.textWithLink("[Calendar] Add Travel Event", 20, y, { url: travelUrl });
+        y += 6;
+      }
+
+      doc.setTextColor(15,23,42);
+      doc.setFontSize(10);
+      doc.text("Reminder: 1 day before is auto-added in downloaded .ICS files.", 20, y);
+      return y + 4;
+    }
+    function drawPDFCard(doc, textDark, label, value, x, y, color){
+      doc.setFillColor(color[0], color[1], color[2]);
+      doc.roundedRect(x, y-7, 38, 7, 2, 2, 'F');
+      doc.setTextColor(255,255,255); doc.setFontSize(9);
+      doc.text(label, x+3, y-2);
+
+      doc.setTextColor(textDark[0],textDark[1],textDark[2]); doc.setFontSize(16);
+      doc.setDrawColor(220,222,226); doc.roundedRect(x, y, 170, 16, 2,2);
+      doc.text(value || "--", x+6, y+12);
+    }
+    function getStatusText(bookingDate){
+      const diff = Math.ceil((stripTime(bookingDate) - stripTime(new Date()))/(1000*60*60*24));
+      return diff >= 0 ? `Status: ${diff} days remaining` : "Status: Already Open";
+    }
+    function parseLooseDate(ds){
+      if(typeof ds !== "string" || !ds.trim()) return null;
+      const d = new Date(ds);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    function getPlanAccent(i){
+      const accents = [
+        { header:[37,99,235], side:[230,244,255] },  // blue
+        { header:[5,150,105], side:[236,253,245] },  // emerald
+        { header:[124,58,237], side:[245,243,255] }, // violet
+        { header:[217,119,6], side:[255,251,235] }   // amber
+      ];
+      return accents[i % accents.length];
+    }
+    function createCurrentPlanPDFBlob(){
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const bookingText = bookingDateObj ? formatDisplayDate(bookingDateObj) : document.getElementById("bookingDate").innerText;
+      const travelText = travelDateObj ? formatDisplayDate(travelDateObj) : document.getElementById("travelDate").innerText;
+      const arpText = document.getElementById("arpSelect").value + " Days";
+      const statusText = "Status: " + document.getElementById("countdown").innerText;
+      renderPlanPDFPage(doc, {
+        bookingText, travelText, arpText, statusText,
+        showMeta: true, showNotes: true,
+        bookingDateObj, travelDateObj
+      });
+      return doc.output("blob");
+    }
+    async function sharePlanWithPDF(target){
+      if(!selectedDate) return alert("Select date first");
+      const message = buildShareMessage();
+      const pdfBlob = createCurrentPlanPDFBlob();
+
+      const canShareFiles = !!(navigator.share && navigator.canShare);
+      if(canShareFiles){
+        const file = new File([pdfBlob], "IRCTC_Plan.pdf", { type: "application/pdf" });
+        if(navigator.canShare({ files:[file] })){
+          const shareData = {
+            title: "IRCTC Booking Plan",
+            text: message,
+            files: [file]
+          };
+          try{
+            await navigator.share(shareData);
+            return;
+          }catch(err){
+            if(err && err.name === "AbortError") return;
+          }
+        }
+      }
+
+      // Fallback: auto-attach is blocked in most desktop browsers.
+      if(target === "whatsapp"){
+        const url = "https://wa.me/?text=" + encodeURIComponent(message);
+        window.open(url, "_blank");
+        alert("PDF auto-attach is not supported in most desktop browsers. Opened WhatsApp text only; attach the PDF manually.");
+      }else{
+        const subject = encodeURIComponent("IRCTC Booking Plan");
+        const body = encodeURIComponent(message);
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+        alert("Mailto cannot attach files automatically. Please attach the downloaded PDF manually.");
+      }
+    }
+
+    /* ===== Share (current selection) ===== */
+    async function shareWhatsApp(){
+      await sharePlanWithPDF("whatsapp");
+    }
+    async function shareEmail(){
+      await sharePlanWithPDF("email");
+    }
+    function buildShareMessage(){
+      const bookingStr = document.getElementById("bookingDate").innerText;
+      const travelStr = document.getElementById("travelDate").innerText;
+      const arpStr = document.getElementById("arpSelect").value + " Days";
+      const bookingCal = bookingDateObj ? buildGoogleCalendarLink({ type:"booking", bookingDate:bookingDateObj, travelDate:travelDateObj }) : "";
+      return `IRCTC Booking Plan
+• Booking Date: ${bookingStr}
+• Travel Date: ${travelStr}
+• ARP: ${arpStr}
+• Booking Opens: 08:00 AM (IRCTC)
+${bookingCal ? `• Add to Calendar: ${bookingCal}\n` : ""}• Reminder: Use .ICS to auto-set 1 day before reminder
+Official: https://www.irctc.co.in`;
+    }
+
+    /* ===== Google Calendar & ICS ===== */
+    function addToGoogleCalendar(){
+      if(!selectedDate) return alert("Select date first");
+      const travel = travelDateObj;
+      const booking = bookingDateObj;
+      if(!travel || !booking) return alert("Select date first");
+      // Add BOOKING OPEN timed event (08:00–09:00)
+      const url = buildGoogleCalendarLink({type:"booking", travelDate:travel, bookingDate:booking});
+      window.open(url, "_blank");
+    }
+    function downloadICSFile(){
+      if(!selectedDate) return alert("Select date first");
+      const travel = travelDateObj;
+      const booking = bookingDateObj;
+      if(!travel || !booking) return alert("Select date first");
+      const ics = buildICS({type:"booking", travelDate:travel, bookingDate:booking});
+      const blob = new Blob([ics], {type:"text/calendar;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "IRCTC_Booking_Open.ics";
+      a.click();
+    }
+    function downloadCombinedICSFile(){
+      if(!selectedDate) return alert("Select date first");
+      const travel = travelDateObj;
+      const booking = bookingDateObj;
+      if(!travel || !booking) return alert("Select date first");
+      const ics = buildCombinedICS({ travelDate:travel, bookingDate:booking });
+      const blob = new Blob([ics], {type:"text/calendar;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "IRCTC_Booking_And_Travel.ics";
+      a.click();
+    }
+    function buildGoogleCalendarLink({type, travelDate, bookingDate}){
+      const base = "https://calendar.google.com/calendar/render?action=TEMPLATE";
+      const titleTravel = encodeURIComponent("Train Travel Date");
+      const titleBook = encodeURIComponent(buildBookingSummaryTitle(travelDate));
+      const details = encodeURIComponent(buildEventDescription(bookingDate, travelDate));
+      const location = encodeURIComponent("IRCTC Online");
+      if(type === "travel"){
+        const start = ymd(travelDate);
+        const end = ymd(addDays(travelDate,1));
+        return `${base}&text=${titleTravel}&dates=${start}/${end}&details=${details}&location=${location}`;
+      }else{
+        const start = ymdhmsLocal(bookingDate, 7,30,0);
+        const end   = ymdhmsLocal(bookingDate, 8,0,0);
+        return `${base}&text=${titleBook}&dates=${start}/${end}&details=${details}&location=${location}`;
+      }
+    }
+    function buildICS({type, travelDate, bookingDate}){
+      const uid = "irctc-" + Date.now() + "@planner";
+      const dtstamp = ymdhmsUTC(new Date());
+      const desc = buildEventDescription(bookingDate, travelDate);
+      let lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//IRCTC Booking Planner//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        `UID:${uid}`,
+        `DTSTAMP:${dtstamp}`,
+      ];
+      if(type === "travel"){
+        const start = ymd(travelDate); const end = ymd(addDays(travelDate,1));
+        lines.push(`DTSTART;VALUE=DATE:${start}`,`DTEND;VALUE=DATE:${end}`,
+          "SUMMARY:Train Travel Date",`DESCRIPTION:${escapeICS(desc)}`,"LOCATION:IRCTC Online");
+      }else{
+        const start = ymdhmsLocal(bookingDate,7,30,0); const end = ymdhmsLocal(bookingDate,8,0,0);
+        lines.push(`DTSTART:${start}`,`DTEND:${end}`,
+          `SUMMARY:${escapeICS(buildBookingSummaryTitle(travelDate))}`,`DESCRIPTION:${escapeICS(desc)}`,"LOCATION:IRCTC Online");
+      }
+      lines.push(
+        "BEGIN:VALARM",
+        "TRIGGER:-P1D",
+        "ACTION:DISPLAY",
+        "DESCRIPTION:Reminder - IRCTC event tomorrow",
+        "END:VALARM"
+      );
+      lines.push("END:VEVENT","END:VCALENDAR");
+      return lines.join("\r\n");
+    }
+    function buildCombinedICS({travelDate, bookingDate}){
+      const dtstamp = ymdhmsUTC(new Date());
+      const bookingUid = "irctc-booking-" + Date.now() + "@planner";
+      const travelUid = "irctc-travel-" + (Date.now()+1) + "@planner";
+      const desc = escapeICS(buildEventDescription(bookingDate, travelDate));
+      const lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//IRCTC Booking Planner//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        `UID:${bookingUid}`,
+        `DTSTAMP:${dtstamp}`,
+        `DTSTART:${ymdhmsLocal(bookingDate,7,30,0)}`,
+        `DTEND:${ymdhmsLocal(bookingDate,8,0,0)}`,
+        `SUMMARY:${escapeICS(buildBookingSummaryTitle(travelDate))}`,
+        `DESCRIPTION:${desc}`,
+        "LOCATION:IRCTC Online",
+        "BEGIN:VALARM",
+        "TRIGGER:-P1D",
+        "ACTION:DISPLAY",
+        "DESCRIPTION:Reminder - IRCTC booking event tomorrow",
+        "END:VALARM",
+        "END:VEVENT",
+        "BEGIN:VEVENT",
+        `UID:${travelUid}`,
+        `DTSTAMP:${dtstamp}`,
+        `DTSTART;VALUE=DATE:${ymd(travelDate)}`,
+        `DTEND;VALUE=DATE:${ymd(addDays(travelDate,1))}`,
+        "SUMMARY:Train Travel Date",
+        `DESCRIPTION:${desc}`,
+        "LOCATION:IRCTC Online",
+        "BEGIN:VALARM",
+        "TRIGGER:-P1D",
+        "ACTION:DISPLAY",
+        "DESCRIPTION:Reminder - Travel date tomorrow",
+        "END:VALARM",
+        "END:VEVENT",
+        "END:VCALENDAR"
+      ];
+      return lines.join("\r\n");
+    }
+    function buildEventDescription(bookingDate, travelDate){
+      const bookingText = bookingDate
+        ? bookingDate.toLocaleDateString("en-IN", { weekday:"short", day:"2-digit", month:"short", year:"numeric" })
+        : "--";
+      const travelText = travelDate
+        ? travelDate.toLocaleDateString("en-IN", { weekday:"short", day:"2-digit", month:"short", year:"numeric" })
+        : "--";
+      const bookingDay = bookingDate
+        ? bookingDate.toLocaleDateString("en-IN", { weekday:"long" })
+        : "--";
+      const travelDay = travelDate
+        ? travelDate.toLocaleDateString("en-IN", { weekday:"long" })
+        : "--";
+      const days = (bookingDate && travelDate)
+        ? Math.max(0, Math.round((stripTime(travelDate) - stripTime(bookingDate))/(1000*60*60*24)))
+        : "--";
+      return `Planned via IRCTC Booking Planner.
+Reminder: Tatkal Booking
+Check https://www.irctc.co.in for latest.
+Booking Date: ${bookingText}
+Booking Day: ${bookingDay}
+Travel Date: ${travelText}
+Travel Day: ${travelDay}
+Days: ${days}`;
+    }
+    function buildBookingSummaryTitle(travelDate){
+      if(!travelDate || Number.isNaN(travelDate.getTime())) return "IRCTC Booking Opens";
+      const month = travelDate.toLocaleDateString("en-IN", { month: "long" });
+      const weekday = travelDate.toLocaleDateString("en-IN", { weekday: "short" });
+      const day = travelDate.getDate();
+      return `IRCTC Booking Opens - for ${month} ${day}${ordinalSuffix(day)}, ${weekday}`;
+    }
+    function ordinalSuffix(n){
+      const mod10 = n % 10;
+      const mod100 = n % 100;
+      if(mod10 === 1 && mod100 !== 11) return "st";
+      if(mod10 === 2 && mod100 !== 12) return "nd";
+      if(mod10 === 3 && mod100 !== 13) return "rd";
+      return "th";
+    }
+    function escapeICS(text){
+      return String(text || "")
+        .replace(/\\/g, "\\\\")
+        .replace(/\n/g, "\\n")
+        .replace(/,/g, "\\,")
+        .replace(/;/g, "\\;");
+    }
+
+    /* ===== Share (Saved rows) ===== */
+    function shareWhatsAppSaved(i){
+      const plan = (JSON.parse(localStorage.getItem("irctcPlans")) || [])[i];
+      if(!plan) return;
+      const msg = buildShareMessageFromPlan(plan);
+      const url = "https://wa.me/?text=" + encodeURIComponent(msg);
+      window.open(url, "_blank");
+    }
+    function shareEmailSaved(i){
+      const plan = (JSON.parse(localStorage.getItem("irctcPlans")) || [])[i];
+      if(!plan) return;
+      const subject = encodeURIComponent("IRCTC Booking Plan");
+      const body = encodeURIComponent(buildShareMessageFromPlan(plan));
+      const mailto = `mailto:?subject=${subject}&body=${body}`;
+      window.location.href = mailto;
+    }
+    function buildShareMessageFromPlan(plan){
+      const bookingObj = parseISODate(plan.booking) || parseLooseDate(plan.booking);
+      const travelObj = parseISODate(plan.travel) || parseLooseDate(plan.travel);
+      const bookingText = bookingObj ? formatDisplayDate(bookingObj) : (plan.booking || "--");
+      const travelText = travelObj ? formatDisplayDate(travelObj) : (plan.travel || "--");
+      const bookingCal = bookingObj ? buildGoogleCalendarLink({ type:"booking", bookingDate:bookingObj, travelDate:travelObj }) : "";
+
+      return `IRCTC Booking Plan
+• Booking Date: ${bookingText}
+• Travel Date: ${travelText}
+• ARP: ${plan.arp} Days
+• Booking Opens: 08:00 AM (IRCTC)
+${bookingCal ? `• Add to Calendar: ${bookingCal}\n` : ""}• Reminder: Use .ICS to auto-set 1 day before reminder
+Official: https://www.irctc.co.in`;
+    }
+
+    /* ===== Bookmark / Sharable URL ===== */
+    function buildPlanParams(){
+      const travel = travelDateObj;
+      const booking = bookingDateObj;
+      if(!travel || !booking || isNaN(travel) || isNaN(booking)) return "";
+      const params = new URLSearchParams();
+      params.set("mode", mode);
+      params.set("arp", document.getElementById("arpSelect").value);
+      params.set("travel", isoDate(travel));
+      params.set("booking", isoDate(booking));
+      return params.toString();
+    }
+    function bookmarkThisPlan(){
+      const qp = buildPlanParams();
+      if(!qp){ alert("Select a date first"); return; }
+      const newUrl = location.pathname + "?" + qp;
+      history.pushState(null, "", newUrl);
+      const hint = document.getElementById("bookmarkHint");
+      hint.innerText = "URL updated. Press Ctrl+D (⌘+D on Mac) to bookmark this plan.";
+      setTimeout(()=>hint.innerText="", 6000);
+    }
+    async function copyShareLink(){
+      const qp = buildPlanParams();
+      if(!qp){ alert("Select a date first"); return; }
+      const link = location.origin + location.pathname + "?" + qp;
+      try{ await navigator.clipboard.writeText(link); alert("Sharable link copied!"); }
+      catch{ prompt("Copy this link:", link); }
+    }
+
+    /* ===== Utility ===== */
+    function toggleDark(){
+      document.documentElement.classList.toggle("dark");
+    }
+    function stripTime(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+    function addDays(d, n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+    function ymd(d){
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${y}${m}${day}`;
+    }
+    function ymdhmsLocal(d, hh=0, mm=0, ss=0){
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      const H = String(hh).padStart(2,'0');
+      const M = String(mm).padStart(2,'0');
+      const S = String(ss).padStart(2,'0');
+      return `${y}${m}${day}T${H}${M}${S}`;
+    }
+    function ymdhmsUTC(d){
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth()+1).padStart(2,'0');
+      const day = String(d.getUTCDate()).padStart(2,'0');
+      const H = String(d.getUTCHours()).padStart(2,'0');
+      const M = String(d.getUTCMinutes()).padStart(2,'0');
+      const S = String(d.getUTCSeconds()).padStart(2,'0');
+      return `${y}${m}${day}T${H}${M}${S}Z`;
+    }
+    function isoDate(d){
+      return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join("-");
+    }
+    function parseISODate(ds){
+      if (typeof ds !== "string") return null;
+      const m = ds.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if(!m) return null;
+      const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    function formatDisplayDate(d){
+      if(!d || Number.isNaN(d.getTime())) return "--";
+      return d.toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      });
+    }
+    function formatSavedDate(raw){
+      const parsed = parseISODate(raw);
+      return parsed ? formatDisplayDate(parsed) : (raw || "--");
+    }
+
+    /* ===== Import Holidays JSON ===== */
+    function importHolidaysJSON(e){
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt)=>{
+        try{
+          const arr = JSON.parse(evt.target.result);
+          if(!Array.isArray(arr)) throw new Error("Invalid format");
+          const valid = arr.every(x => typeof x.date === "string" && typeof x.label === "string");
+          if(!valid) throw new Error("Each item must have {date:'YYYY-MM-DD', label:'...'}");
+          tnHolidays = arr;
+          alert("Holidays imported successfully!");
+          renderCalendar();
+        }catch(err){
+          alert("Import failed: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Initial render
+    renderCalendar();
+  </script>
+</body>
+</html>
