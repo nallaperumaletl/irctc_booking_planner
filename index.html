@@ -380,6 +380,35 @@
       background:#1d4ed8;
       color:#fff;
     }
+    .assistant-modes{
+      display:flex;
+      gap:8px;
+      padding:8px 12px 0;
+    }
+    .assistant-mode-btn{
+      border:1px solid #bfdbfe;
+      background:#eff6ff;
+      color:#1e3a8a;
+      border-radius:9999px;
+      padding:3px 10px;
+      font-size:.72rem;
+      font-weight:700;
+    }
+    .assistant-mode-btn.active{
+      background:#1d4ed8;
+      color:#fff;
+      border-color:#1d4ed8;
+    }
+    .dark .assistant-mode-btn{
+      border-color:#334155;
+      background:#0f172a;
+      color:#bfdbfe;
+    }
+    .dark .assistant-mode-btn.active{
+      background:#2563eb;
+      color:#fff;
+      border-color:#2563eb;
+    }
     @keyframes assistantSpin{
       from{ transform:rotate(0deg); }
       to{ transform:rotate(360deg); }
@@ -694,6 +723,10 @@
       <span>Siri Travel Prompt</span>
       <button onclick="toggleAssistantPanel(false)" class="text-xs px-2 py-1 rounded bg-slate-200 dark:bg-slate-700">Close</button>
     </div>
+    <div class="assistant-modes">
+      <button id="assistantGeneralBtn" class="assistant-mode-btn" onclick="setAssistantBookingMode('general')">General 60D</button>
+      <button id="assistantTatkalBtn" class="assistant-mode-btn" onclick="setAssistantBookingMode('tatkal')">Tatkal</button>
+    </div>
     <div id="assistantBody" class="assistant-body"></div>
   </div>
   <div id="actionPanelOverlay" onclick="closeMobileActionPanel()"></div>
@@ -779,6 +812,7 @@
     let savedTouchDelta = 0;
     let savedDragging = false;
     let assistantOpen = false;
+    let assistantBookingMode = "general";
 
     // Holidays TN - sample (2026). Replace/import per year.
     let tnHolidays = [
@@ -1233,11 +1267,22 @@
       panel.classList.toggle("show", assistantOpen);
       if(assistantOpen) updateAssistantSuggestions();
     }
+    function setAssistantBookingMode(modeName){
+      assistantBookingMode = modeName === "tatkal" ? "tatkal" : "general";
+      const g = document.getElementById("assistantGeneralBtn");
+      const t = document.getElementById("assistantTatkalBtn");
+      if(g) g.classList.toggle("active", assistantBookingMode === "general");
+      if(t) t.classList.toggle("active", assistantBookingMode === "tatkal");
+      updateAssistantSuggestions();
+    }
     function isPastMonthView(){
       const now = new Date();
       const y = currentDate.getFullYear();
       const m = currentDate.getMonth();
       return y < now.getFullYear() || (y === now.getFullYear() && m < now.getMonth());
+    }
+    function isOnOrAfterToday(d){
+      return stripTime(d) >= stripTime(new Date());
     }
     function monthDate(y,m,d){ return new Date(y,m,d); }
     function isHoliday(d){
@@ -1247,11 +1292,15 @@
     function fmt(d){
       return d.toLocaleDateString("en-IN",{ weekday:"short", day:"2-digit", month:"short" });
     }
-    function applySuggestedPlan(dateIso){
+    function applySuggestedPlan(dateIso, arpOverride){
       const d = parseISODate(dateIso);
       if(!d) return;
       showCalculator();
       setMode("booking");
+      if(arpOverride){
+        const arp = document.getElementById("arpSelect");
+        if(arp) arp.value = String(arpOverride);
+      }
       selectedDate = d;
       currentDate = new Date(d);
       renderCalendar();
@@ -1283,22 +1332,47 @@
       if(best.length >= 2) return best.slice(0,2);
       return [...best, ...c.filter(x=>x.holidayInside)].slice(0,2);
     }
-    function buildCycleText(week, idx){
+    function buildTatkalCycleText(week, idx){
       const inboundTravel = addDays(week.mon, -1);
       const inboundBooking = addDays(week.mon, -2);
       const outboundTravel = week.fri;
       const outboundBooking = addDays(week.fri, -1);
+      if(!isOnOrAfterToday(inboundBooking) && !isOnOrAfterToday(outboundBooking)) return "";
+      const planBooking = isOnOrAfterToday(inboundBooking) ? inboundBooking : outboundBooking;
       const chips = week.holidayInside
         ? `<span class="assistant-chip">Has holiday in work week</span>`
         : `<span class="assistant-chip">No holiday in work week</span>`;
+      const holidayLine = week.holidayInside ? "Has holiday" : "No holidays";
       return `
         <div class="assistant-cycle">
-          <div class="font-semibold mb-1">Cycle ${idx}</div>
+          <div class="font-semibold mb-1">Cycle ${idx} • Tatkal</div>
           <div>${chips}</div>
           <div>Office week: <b>${fmt(week.mon)}</b> to <b>${fmt(week.fri)}</b> (Mon-Fri)</div>
-          <div class="route-box"><b>Madurai → Chennai</b><br>Travel: <b>${fmt(inboundTravel)}</b> | Book: <b>${fmt(inboundBooking)}</b></div>
-          <div class="route-box"><b>Chennai → Madurai</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book: <b>${fmt(outboundBooking)}</b></div>
-          <button class="assistant-plan-btn" onclick="applySuggestedPlan('${isoDate(inboundBooking)}')">Plan This Cycle</button>
+          <div class="route-box"><b>Madurai → Chennai</b><br>Travel: <b>${fmt(inboundTravel)}</b> | Book: <b>${fmt(inboundBooking)}</b><br><span class="assistant-chip">${holidayLine}</span></div>
+          <div class="route-box"><b>Chennai → Madurai</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book: <b>${fmt(outboundBooking)}</b><br><span class="assistant-chip">${holidayLine}</span></div>
+          <button class="assistant-plan-btn" onclick="applySuggestedPlan('${isoDate(planBooking)}')">Plan This Cycle</button>
+        </div>
+      `;
+    }
+    function buildGeneralCycleText(week, idx){
+      const inboundTravel = addDays(week.mon, -1);
+      const outboundTravel = week.fri;
+      const inboundBooking = addDays(inboundTravel, -60);
+      const outboundBooking = addDays(outboundTravel, -60);
+      if(!isOnOrAfterToday(inboundBooking) && !isOnOrAfterToday(outboundBooking)) return "";
+      const planBooking = isOnOrAfterToday(inboundBooking) ? inboundBooking : outboundBooking;
+      const chips = week.holidayInside
+        ? `<span class="assistant-chip">Has holiday in work week</span>`
+        : `<span class="assistant-chip">No holiday in work week</span>`;
+      const holidayLine = week.holidayInside ? "Has holiday" : "No holidays";
+      return `
+        <div class="assistant-cycle">
+          <div class="font-semibold mb-1">Cycle ${idx} • General (60 Days)</div>
+          <div>${chips}<span class="assistant-chip">Booking opens 08:00 AM</span></div>
+          <div>Office week: <b>${fmt(week.mon)}</b> to <b>${fmt(week.fri)}</b> (Mon-Fri)</div>
+          <div class="route-box"><b>Madurai → Chennai</b><br>Travel: <b>${fmt(inboundTravel)}</b> | Book (60D): <b>${fmt(inboundBooking)}</b><br><span class="assistant-chip">${holidayLine}</span></div>
+          <div class="route-box"><b>Chennai → Madurai</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book (60D): <b>${fmt(outboundBooking)}</b><br><span class="assistant-chip">${holidayLine}</span></div>
+          <button class="assistant-plan-btn" onclick="applySuggestedPlan('${isoDate(planBooking)}','60')">Plan This Cycle</button>
         </div>
       `;
     }
@@ -1323,9 +1397,19 @@
         `;
         return;
       }
-      let html = `<div class="mb-2"><b>${monthLabel}</b> suggestion for 10 office days (2 cycles x 5 days).</div><div class="text-xs mb-2">Tap <b>Plan This Cycle</b> to jump to calendar with booking date selected.</div>`;
-      picked.forEach((w,i)=>{ html += buildCycleText(w, i+1); });
-      if(picked.length < 2){
+      const modeLabel = assistantBookingMode === "general" ? "General 60D" : "Tatkal";
+      let html = `<div class="mb-2"><b>${monthLabel}</b> • <b>${modeLabel}</b> suggestion for 10 office days (2 cycles x 5 days).</div><div class="text-xs mb-2">Only booking dates from today onward are shown. Tap <b>Plan This Cycle</b> to jump to calendar with booking date selected.</div>`;
+      let count = 0;
+      picked.forEach((w,i)=>{
+        const row = assistantBookingMode === "general" ? buildGeneralCycleText(w, i+1) : buildTatkalCycleText(w, i+1);
+        if(row){
+          html += row;
+          count++;
+        }
+      });
+      if(count === 0){
+        html += `<div class="assistant-chip">No upcoming booking prompt available for this month in ${modeLabel}</div>`;
+      }else if(count < 2){
         html += `<div class="assistant-chip">Only one valid cycle available in this month</div>`;
       }
       html += `<div class="text-xs mt-1">Rule used: prefer Monday-Friday office weeks without holidays in-between.</div>`;
@@ -2031,6 +2115,7 @@ Official: https://www.irctc.co.in`;
         toggleAssistantPanel(false);
       }
     });
+    setAssistantBookingMode("general");
     initMobilePanelGesture();
     initSavedViewGesture();
 
