@@ -4,6 +4,8 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>IRCTC Booking Planner</title>
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%230ea5e9'/%3E%3Cstop offset='100%25' stop-color='%232563eb'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='30' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='32' r='20' fill='%23ffffff' fill-opacity='0.92'/%3E%3Ccircle cx='32' cy='32' r='2.8' fill='%231d4ed8'/%3E%3Cpath d='M32 32 L32 22' stroke='%231d4ed8' stroke-width='3.6' stroke-linecap='round'/%3E%3Cpath d='M32 32 L41 36' stroke='%231d4ed8' stroke-width='3.6' stroke-linecap='round'/%3E%3C/svg%3E">
 
   <!-- ✅ Tailwind + Flatpickr + jsPDF -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -549,7 +551,22 @@
 
   <!-- ================= NAVIGATION ================= -->
   <div class="flex justify-between items-center bg-white shadow px-6 py-4 dark:panel">
-    <h1 class="text-xl font-bold text-blue-600">IRCTC Booking Planner</h1>
+    <h1 class="text-xl font-bold text-blue-600 flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 64 64" aria-hidden="true">
+        <defs>
+          <linearGradient id="brandClockGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#06b6d4"/>
+            <stop offset="100%" stop-color="#2563eb"/>
+          </linearGradient>
+        </defs>
+        <circle cx="32" cy="32" r="30" fill="url(#brandClockGrad)"/>
+        <circle cx="32" cy="32" r="20" fill="#ffffff" fill-opacity="0.95"/>
+        <circle cx="32" cy="32" r="2.8" fill="#1d4ed8"/>
+        <path d="M32 32 L32 22" stroke="#1d4ed8" stroke-width="3.6" stroke-linecap="round"/>
+        <path d="M32 32 L41 36" stroke="#1d4ed8" stroke-width="3.6" stroke-linecap="round"/>
+      </svg>
+      <span>IRCTC Booking Planner</span>
+    </h1>
 
     <div class="flex flex-wrap gap-3 items-center">
       <!-- Holidays toggle & import -->
