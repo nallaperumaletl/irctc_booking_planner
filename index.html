@@ -280,7 +280,7 @@
     .assistant-fab span{
       position:relative;
       z-index:1;
-      font-size:22px;
+      font-size:20px;
       color:#0f172a;
       font-weight:700;
     }
@@ -338,6 +338,38 @@
     .dark .assistant-chip{
       background:#1e293b;
       color:#bfdbfe;
+    }
+    .assistant-cycle{
+      border:1px solid #dbeafe;
+      border-radius:12px;
+      padding:8px 10px;
+      margin-bottom:10px;
+      background:#ffffff;
+    }
+    .dark .assistant-cycle{
+      border-color:#334155;
+      background:#0b1220;
+    }
+    .route-box{
+      display:block;
+      border:1px solid #bfdbfe;
+      border-radius:8px;
+      padding:4px 8px;
+      margin-top:6px;
+      background:#eff6ff;
+    }
+    .dark .route-box{
+      border-color:#334155;
+      background:#0f172a;
+    }
+    .assistant-plan-btn{
+      margin-top:8px;
+      border-radius:8px;
+      padding:6px 10px;
+      font-size:.76rem;
+      font-weight:600;
+      background:#1d4ed8;
+      color:#fff;
     }
     @keyframes assistantSpin{
       from{ transform:rotate(0deg); }
@@ -645,12 +677,12 @@
       Save Pin
     </button>
   </div>
-  <button id="assistantFab" class="assistant-fab" onclick="toggleAssistantPanel()" aria-label="Travel assistant">
-    <span>AI</span>
+  <button id="assistantFab" class="assistant-fab" onclick="toggleAssistantPanel()" aria-label="Siri style assistant">
+    <span>S</span>
   </button>
   <div id="assistantPanel" class="assistant-panel" role="dialog" aria-modal="false" aria-label="Travel Assistant">
     <div class="assistant-head">
-      <span>Travel Assistant</span>
+      <span>Siri Travel Prompt</span>
       <button onclick="toggleAssistantPanel(false)" class="text-xs px-2 py-1 rounded bg-slate-200 dark:bg-slate-700">Close</button>
     </div>
     <div id="assistantBody" class="assistant-body"></div>
@@ -1206,6 +1238,18 @@
     function fmt(d){
       return d.toLocaleDateString("en-IN",{ weekday:"short", day:"2-digit", month:"short" });
     }
+    function applySuggestedPlan(dateIso){
+      const d = parseISODate(dateIso);
+      if(!d) return;
+      showCalculator();
+      setMode("booking");
+      selectedDate = d;
+      currentDate = new Date(d);
+      renderCalendar();
+      calculate();
+      const cal = document.getElementById("calendar");
+      if(cal) cal.scrollIntoView({ behavior:"smooth", block:"start" });
+    }
     function getWeekCandidates(year, month){
       const days = new Date(year, month+1, 0).getDate();
       const today = stripTime(new Date());
@@ -1239,12 +1283,13 @@
         ? `<span class="assistant-chip">Has holiday in work week</span>`
         : `<span class="assistant-chip">No holiday in work week</span>`;
       return `
-        <div class="mb-3">
+        <div class="assistant-cycle">
           <div class="font-semibold mb-1">Cycle ${idx}</div>
           <div>${chips}</div>
           <div>Office week: <b>${fmt(week.mon)}</b> to <b>${fmt(week.fri)}</b> (Mon-Fri)</div>
-          <div>Madurai to Chennai travel: <b>${fmt(inboundTravel)}</b> | Book on <b>${fmt(inboundBooking)}</b></div>
-          <div>Chennai to Madurai travel: <b>${fmt(outboundTravel)}</b> | Book on <b>${fmt(outboundBooking)}</b></div>
+          <div class="route-box"><b>Madurai → Chennai</b><br>Travel: <b>${fmt(inboundTravel)}</b> | Book: <b>${fmt(inboundBooking)}</b></div>
+          <div class="route-box"><b>Chennai → Madurai</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book: <b>${fmt(outboundBooking)}</b></div>
+          <button class="assistant-plan-btn" onclick="applySuggestedPlan('${isoDate(inboundBooking)}')">Plan This Cycle</button>
         </div>
       `;
     }
@@ -1269,7 +1314,7 @@
         `;
         return;
       }
-      let html = `<div class="mb-2"><b>${monthLabel}</b> suggestion for 10 office days (2 cycles x 5 days):</div>`;
+      let html = `<div class="mb-2"><b>${monthLabel}</b> suggestion for 10 office days (2 cycles x 5 days).</div><div class="text-xs mb-2">Tap <b>Plan This Cycle</b> to jump to calendar with booking date selected.</div>`;
       picked.forEach((w,i)=>{ html += buildCycleText(w, i+1); });
       if(picked.length < 2){
         html += `<div class="assistant-chip">Only one valid cycle available in this month</div>`;
