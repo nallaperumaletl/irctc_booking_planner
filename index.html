@@ -948,6 +948,7 @@
     let assistantOpen = false;
     let assistantBookingMode = "general";
     let assistantGeneralSlot = 0;
+    let assistantInitialized = false;
 
     // Holidays TN - sample (2026). Replace/import per year.
     let tnHolidays = [
@@ -1403,6 +1404,15 @@
       panel.classList.toggle("show", assistantOpen);
       overlay.classList.toggle("show", assistantOpen);
       if(assistantOpen){
+        if(!assistantInitialized){
+          assistantBookingMode = "general";
+          assistantGeneralSlot = 0;
+          assistantInitialized = true;
+        }
+        const g = document.getElementById("assistantGeneralBtn");
+        const t = document.getElementById("assistantTatkalBtn");
+        if(g) g.classList.toggle("active", assistantBookingMode === "general");
+        if(t) t.classList.toggle("active", assistantBookingMode === "tatkal");
         refreshAssistantSlotUI();
         updateAssistantSuggestions();
       }
@@ -1481,6 +1491,7 @@
     function applySuggestedPlan(dateIso, arpOverride){
       const d = parseISODate(dateIso);
       if(!d) return;
+      toggleAssistantPanel(false);
       showCalculator();
       setMode("booking");
       if(arpOverride){
@@ -1600,23 +1611,26 @@
       const inboundBooking = addDays(inboundTravel, -60);
       const outboundBooking = addDays(outboundTravel, -60);
       if(!isOnOrAfterToday(inboundBooking) && !isOnOrAfterToday(outboundBooking)) return "";
-      const planBooking = isOnOrAfterToday(inboundBooking) ? inboundBooking : outboundBooking;
       const chips = week.holidayInside
         ? `<span class="assistant-chip">Has holiday in work week</span>`
         : `<span class="assistant-chip">No holiday in work week</span>`;
       const holidayLine = week.holidayInside ? "Has holiday" : "No holidays";
       const holidayChipClass = week.holidayInside ? "assistant-chip assistant-chip-warn" : "assistant-chip";
       return `
-        <div class="assistant-cycle">
+        <div class="assistant-cycle good">
           <div class="font-semibold mb-1">Cycle ${idx} • General (60 Days)</div>
           <div class="assistant-chip-row">${chips}<span class="assistant-chip">Booking opens 08:00 AM</span></div>
           <div>Office week: <b>${fmt(week.mon)}</b> to <b>${fmt(week.fri)}</b> (Mon-Fri)</div>
           <div class="route-box">
-            <div class="assistant-route-head"><span>Madurai → Chennai</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(planBooking)}','60')">Plan This Cycle</button></div>
+            <div class="assistant-route-head"><span>Madurai → Chennai</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(inboundBooking)}','60')">Plan This Cycle</button></div>
             <div>Travel: <b>${fmt(inboundTravel)}</b> | Book (60D): <b>${fmt(inboundBooking)}</b></div>
             <div><span class="${holidayChipClass}">${holidayLine}</span></div>
           </div>
-          <div class="route-box"><b>Chennai → Madurai</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book (60D): <b>${fmt(outboundBooking)}</b><br><span class="${holidayChipClass}">${holidayLine}</span></div>
+          <div class="route-box">
+            <div class="assistant-route-head"><span>Chennai → Madurai</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(outboundBooking)}','60')">Plan This Cycle</button></div>
+            <div>Travel: <b>${fmt(outboundTravel)}</b> | Book (60D): <b>${fmt(outboundBooking)}</b></div>
+            <div><span class="${holidayChipClass}">${holidayLine}</span></div>
+          </div>
         </div>
       `;
     }
