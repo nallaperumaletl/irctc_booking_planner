@@ -267,7 +267,7 @@
       position:fixed;
       right:14px;
       bottom:92px;
-      z-index:70;
+      z-index:71;
       width:58px;
       height:58px;
       border-radius:9999px;
@@ -297,17 +297,37 @@
       position:fixed;
       right:14px;
       bottom:160px;
-      z-index:70;
-      width:min(92vw,360px);
+      z-index:72;
+      width:min(92vw,390px);
       max-height:62vh;
       overflow:auto;
       border-radius:16px;
       border:1px solid #bfdbfe;
       background:linear-gradient(145deg,#f8fbff,#eef6ff);
       box-shadow:0 18px 45px rgba(15,23,42,.26);
-      display:none;
+      opacity:0;
+      transform:translateY(12px) scale(.98);
+      pointer-events:none;
+      transition:opacity .2s ease, transform .2s ease;
     }
-    .assistant-panel.show{ display:block; }
+    .assistant-panel.show{
+      opacity:1;
+      transform:translateY(0) scale(1);
+      pointer-events:auto;
+    }
+    .assistant-overlay{
+      position:fixed;
+      inset:0;
+      z-index:69;
+      background:rgba(15,23,42,.35);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .2s ease;
+    }
+    .assistant-overlay.show{
+      opacity:1;
+      pointer-events:auto;
+    }
     .dark .assistant-panel{
       border-color:#334155;
       background:linear-gradient(145deg,#0f172a,#1e293b);
@@ -320,7 +340,7 @@
       border-bottom:1px solid #dbeafe;
       display:flex;
       align-items:center;
-      justify-content:space-between;
+      justify-content:flex-end;
     }
     .dark .assistant-head{
       color:#bfdbfe;
@@ -379,6 +399,38 @@
       font-weight:600;
       background:#1d4ed8;
       color:#fff;
+    }
+    .assistant-route-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      font-weight:700;
+    }
+    .assistant-plan-btn-inline{
+      border:1px solid #1d4ed8;
+      background:transparent;
+      color:#1d4ed8;
+      border-radius:8px;
+      padding:3px 8px;
+      font-size:.72rem;
+      font-weight:700;
+      white-space:nowrap;
+    }
+    .dark .assistant-plan-btn-inline{
+      border-color:#93c5fd;
+      color:#bfdbfe;
+    }
+    .assistant-chip-row{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      white-space:nowrap;
+      flex-wrap:nowrap;
+      overflow-x:auto;
+    }
+    @media (min-width: 1024px){
+      .assistant-panel{ width:420px; }
     }
     .assistant-modes{
       display:flex;
@@ -720,7 +772,6 @@
   </button>
   <div id="assistantPanel" class="assistant-panel" role="dialog" aria-modal="false" aria-label="Travel Assistant">
     <div class="assistant-head">
-      <span>Siri Travel Prompt</span>
       <button onclick="toggleAssistantPanel(false)" class="text-xs px-2 py-1 rounded bg-slate-200 dark:bg-slate-700">Close</button>
     </div>
     <div class="assistant-modes">
@@ -729,6 +780,7 @@
     </div>
     <div id="assistantBody" class="assistant-body"></div>
   </div>
+  <div id="assistantOverlay" class="assistant-overlay" onclick="toggleAssistantPanel(false)"></div>
   <div id="actionPanelOverlay" onclick="closeMobileActionPanel()"></div>
 
   <!-- ================= SAVED VIEW ================= -->
@@ -1261,10 +1313,12 @@
     /* ===== Assistant Suggestions ===== */
     function toggleAssistantPanel(force){
       const panel = document.getElementById("assistantPanel");
-      if(!panel) return;
+      const overlay = document.getElementById("assistantOverlay");
+      if(!panel || !overlay) return;
       if(typeof force === "boolean") assistantOpen = force;
       else assistantOpen = !assistantOpen;
       panel.classList.toggle("show", assistantOpen);
+      overlay.classList.toggle("show", assistantOpen);
       if(assistantOpen) updateAssistantSuggestions();
     }
     function setAssistantBookingMode(modeName){
@@ -1346,11 +1400,14 @@
       return `
         <div class="assistant-cycle">
           <div class="font-semibold mb-1">Cycle ${idx} • Tatkal</div>
-          <div>${chips}</div>
+          <div class="assistant-chip-row">${chips}</div>
           <div>Office week: <b>${fmt(week.mon)}</b> to <b>${fmt(week.fri)}</b> (Mon-Fri)</div>
-          <div class="route-box"><b>Madurai → Chennai</b><br>Travel: <b>${fmt(inboundTravel)}</b> | Book: <b>${fmt(inboundBooking)}</b><br><span class="assistant-chip">${holidayLine}</span></div>
+          <div class="route-box">
+            <div class="assistant-route-head"><span>Madurai → Chennai</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(planBooking)}')">Plan This Cycle</button></div>
+            <div>Travel: <b>${fmt(inboundTravel)}</b> | Book: <b>${fmt(inboundBooking)}</b></div>
+            <div><span class="assistant-chip">${holidayLine}</span></div>
+          </div>
           <div class="route-box"><b>Chennai → Madurai</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book: <b>${fmt(outboundBooking)}</b><br><span class="assistant-chip">${holidayLine}</span></div>
-          <button class="assistant-plan-btn" onclick="applySuggestedPlan('${isoDate(planBooking)}')">Plan This Cycle</button>
         </div>
       `;
     }
@@ -1368,11 +1425,14 @@
       return `
         <div class="assistant-cycle">
           <div class="font-semibold mb-1">Cycle ${idx} • General (60 Days)</div>
-          <div>${chips}<span class="assistant-chip">Booking opens 08:00 AM</span></div>
+          <div class="assistant-chip-row">${chips}<span class="assistant-chip">Booking opens 08:00 AM</span></div>
           <div>Office week: <b>${fmt(week.mon)}</b> to <b>${fmt(week.fri)}</b> (Mon-Fri)</div>
-          <div class="route-box"><b>Madurai → Chennai</b><br>Travel: <b>${fmt(inboundTravel)}</b> | Book (60D): <b>${fmt(inboundBooking)}</b><br><span class="assistant-chip">${holidayLine}</span></div>
+          <div class="route-box">
+            <div class="assistant-route-head"><span>Madurai → Chennai</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(planBooking)}','60')">Plan This Cycle</button></div>
+            <div>Travel: <b>${fmt(inboundTravel)}</b> | Book (60D): <b>${fmt(inboundBooking)}</b></div>
+            <div><span class="assistant-chip">${holidayLine}</span></div>
+          </div>
           <div class="route-box"><b>Chennai → Madurai</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book (60D): <b>${fmt(outboundBooking)}</b><br><span class="assistant-chip">${holidayLine}</span></div>
-          <button class="assistant-plan-btn" onclick="applySuggestedPlan('${isoDate(planBooking)}','60')">Plan This Cycle</button>
         </div>
       `;
     }
@@ -1398,7 +1458,7 @@
         return;
       }
       const modeLabel = assistantBookingMode === "general" ? "General 60D" : "Tatkal";
-      let html = `<div class="mb-2"><b>${monthLabel}</b> • <b>${modeLabel}</b> suggestion for 10 office days (2 cycles x 5 days).</div><div class="text-xs mb-2">Only booking dates from today onward are shown. Tap <b>Plan This Cycle</b> to jump to calendar with booking date selected.</div>`;
+      let html = `<div class="mb-2"><b>${monthLabel}</b> • <b>${modeLabel}</b> suggestion for 10 office days (2 cycles x 5 days).</div>`;
       let count = 0;
       picked.forEach((w,i)=>{
         const row = assistantBookingMode === "general" ? buildGeneralCycleText(w, i+1) : buildTatkalCycleText(w, i+1);
@@ -2108,12 +2168,6 @@ Official: https://www.irctc.co.in`;
       if(!menu || window.innerWidth >= 1024) return;
       if(trigger) return;
       if(!menu.contains(e.target)) closeMobileMenu();
-
-      const panel = document.getElementById("assistantPanel");
-      const fab = document.getElementById("assistantFab");
-      if(panel && fab && assistantOpen && !panel.contains(e.target) && !fab.contains(e.target)){
-        toggleAssistantPanel(false);
-      }
     });
     setAssistantBookingMode("general");
     initMobilePanelGesture();
