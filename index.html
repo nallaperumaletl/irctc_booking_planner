@@ -166,6 +166,7 @@
 
     @media (max-width: 1023px){
       .mobile-only{ display:flex; }
+      .desktop-only-mobile-hide{ display:none !important; }
       #actionPanel{
         position:fixed;
         left:0; right:0; bottom:0;
@@ -188,6 +189,12 @@
         margin:2px auto 10px;
       }
       .dark .sheet-handle{ background:#64748b; }
+      .mobile-menu-panel{
+        display:none;
+      }
+      .mobile-menu-panel.show{
+        display:flex;
+      }
       #actionPanelOverlay{
         position:fixed;
         inset:0;
@@ -227,7 +234,7 @@
 
     <div class="flex flex-wrap gap-3 items-center">
       <!-- Holidays toggle & import -->
-      <div class="flex items-center gap-2 text-sm">
+      <div class="desktop-only-mobile-hide flex items-center gap-2 text-sm">
         <label for="toggleHolidays" class="font-medium">Holidays (TN)</label>
         <input id="toggleHolidays" type="checkbox" class="w-4 h-4 accent-green-600" checked>
         <label for="holidayFile" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded cursor-pointer hover:bg-emerald-100">
@@ -235,6 +242,27 @@
         </label>
         <input id="holidayFile" type="file" accept="application/json" class="hidden">
       </div>
+
+      <button onclick="showCalculator()" class="desktop-only-mobile-hide px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">
+        Calculator
+      </button>
+
+      <button onclick="showSavedView()" class="desktop-only-mobile-hide px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm">
+        Saved Plans
+      </button>
+
+      <button onclick="toggleDark()"
+        class="desktop-only-mobile-hide px-4 py-2 bg-gray-200 rounded-lg text-sm">
+        🌙 Mode
+      </button>
+
+      <button onclick="toggleMobileMenu()"
+        class="mobile-only items-center justify-center w-10 h-10 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 dark:border-slate-600"
+        aria-label="Open mobile menu">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-700 dark:text-slate-200" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M4 7h16v2H4V7Zm0 4h16v2H4v-2Zm0 4h16v2H4v-2Z"/>
+        </svg>
+      </button>
 
       <button onclick="showCalculator()"
         class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">
@@ -253,8 +281,43 @@
     </div>
   </div>
 
+  <div id="mobileSettingsMenu" class="mobile-menu-panel mobile-only flex-col gap-3 px-4 py-3 bg-white border-b dark:panel dark:border-slate-700">
+    <div class="flex items-center gap-2 text-sm">
+      <label for="toggleHolidaysMobile" class="font-medium">Holidays (TN)</label>
+      <input id="toggleHolidaysMobile" type="checkbox" class="w-4 h-4 accent-green-600" checked>
+      <label for="holidayFileMobile" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded cursor-pointer hover:bg-emerald-100">
+        Import Holidays
+      </label>
+      <input id="holidayFileMobile" type="file" accept="application/json" class="hidden">
+    </div>
+    <div class="flex gap-2">
+      <button onclick="toggleDark()"
+        class="px-4 py-2 bg-gray-200 rounded-lg text-sm dark:bg-slate-700 dark:text-slate-100">
+        🌙 Mode
+      </button>
+      <button onclick="showCalculator()"
+        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">
+        Planner
+      </button>
+      <button onclick="showSavedView()"
+        class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm">
+        Saved Plans
+      </button>
+    </div>
+  </div>
+
   <!-- Mobile quick controls -->
   <div class="mobile-only flex-col gap-2 px-4 py-3 bg-white border-b dark:panel dark:border-slate-700">
+    <div class="flex gap-2">
+      <button onclick="setMode('travel')" id="travelBtnMain"
+        class="flex-1 px-3 py-2 rounded-lg text-sm border">Travel Mode</button>
+      <button onclick="setMode('booking')" id="bookingBtnMain"
+        class="flex-1 px-3 py-2 rounded-lg text-sm border">Booking Mode</button>
+    </div>
+    <div class="text-xs rounded-lg px-3 py-2 bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+      <div>Travel: <span id="mobileTravelSummary">--</span></div>
+      <div>Booking: <span id="mobileBookingSummary">--</span></div>
+    </div>
     <div class="flex gap-2">
       <button onclick="openMobileActionPanel()"
         class="flex-1 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm">
@@ -330,12 +393,8 @@
         </div>
 
         <div class="mobile-only flex gap-2 mb-4">
-          <button onclick="showSavedView(); closeMobileActionPanel();"
-            class="flex-1 px-3 py-2 rounded-lg text-sm bg-indigo-600 text-white">
-            Saved Pins
-          </button>
           <button onclick="bookmarkThisPlan()"
-            class="flex-1 px-3 py-2 rounded-lg text-sm bg-amber-400 text-slate-900 font-semibold">
+            class="w-full px-3 py-2 rounded-lg text-sm bg-amber-400 text-slate-900 font-semibold">
             Bookmark Plan
           </button>
         </div>
@@ -478,6 +537,9 @@
 
   <!-- ================= SAVED VIEW ================= -->
   <div id="savedView" class="hidden p-6 bg-gray-50 min-h-screen dark:panel">
+    <div id="savedViewHandleWrap" class="mobile-only justify-center mb-3">
+      <div id="savedViewHandle" class="sheet-handle" aria-hidden="true"></div>
+    </div>
     <div class="mobile-only mb-4">
       <button onclick="showCalculator()"
         class="px-3 py-2 rounded-lg text-sm bg-slate-700 text-white">
@@ -550,6 +612,9 @@
     let panelTouchStartY = 0;
     let panelTouchDelta = 0;
     let panelDragging = false;
+    let savedTouchStartY = 0;
+    let savedTouchDelta = 0;
+    let savedDragging = false;
 
     // Holidays TN - sample (2026). Replace/import per year.
     let tnHolidays = [
@@ -638,16 +703,24 @@
     /* ===== UI State ===== */
     function setMode(newMode){
       mode = newMode;
+      const resetBtn = (el)=>{
+        if(!el) return;
+        el.className = "px-3 py-2 rounded-lg text-sm border";
+      };
+      const setActive = (el, cls1, cls2)=>{
+        if(!el) return;
+        el.classList.add(cls1, cls2);
+      };
       const t = document.getElementById("travelBtn");
       const b = document.getElementById("bookingBtn");
+      const tm = document.getElementById("travelBtnMain");
+      const bm = document.getElementById("bookingBtnMain");
 
-      t.className = "px-3 py-2 rounded-lg text-sm border";
-      b.className = "px-3 py-2 rounded-lg text-sm border";
-
+      [t,b,tm,bm].forEach(resetBtn);
       if(newMode === "travel"){
-        t.classList.add("bg-blue-600","text-white");
+        [t,tm].forEach(el=>setActive(el,"bg-blue-600","text-white"));
       }else{
-        b.classList.add("bg-purple-600","text-white");
+        [b,bm].forEach(el=>setActive(el,"bg-purple-600","text-white"));
       }
     }
     setMode("booking");
@@ -817,6 +890,10 @@
       bookingDateObj = booking;
       document.getElementById("travelDate").innerText = formatDisplayDate(travelDateObj);
       document.getElementById("bookingDate").innerText = formatDisplayDate(bookingDateObj);
+      const travelSummary = document.getElementById("mobileTravelSummary");
+      const bookingSummary = document.getElementById("mobileBookingSummary");
+      if(travelSummary) travelSummary.innerText = formatDisplayDate(travelDateObj);
+      if(bookingSummary) bookingSummary.innerText = formatDisplayDate(bookingDateObj);
 
       const diff = Math.ceil((stripTime(booking) - stripTime(new Date()))/(1000*60*60*24));
       document.getElementById("countdown").innerText = diff >= 0 ? `${diff} days remaining` : "Already Open";
@@ -825,9 +902,18 @@
     document.getElementById("arpSelect").addEventListener("change", calculate);
     document.getElementById("toggleHolidays").addEventListener("change", (e)=>{
       showHolidays = e.target.checked;
+      const m = document.getElementById("toggleHolidaysMobile");
+      if(m) m.checked = showHolidays;
       renderCalendar();
     });
     document.getElementById("holidayFile").addEventListener("change", importHolidaysJSON);
+    document.getElementById("toggleHolidaysMobile").addEventListener("change", (e)=>{
+      showHolidays = e.target.checked;
+      const d = document.getElementById("toggleHolidays");
+      if(d) d.checked = showHolidays;
+      renderCalendar();
+    });
+    document.getElementById("holidayFileMobile").addEventListener("change", importHolidaysJSON);
 
     function prevMonth(){ currentDate.setMonth(currentDate.getMonth()-1); renderCalendar(); }
     function nextMonth(){ currentDate.setMonth(currentDate.getMonth()+1); renderCalendar(); }
@@ -852,6 +938,7 @@
 
     function showCalculator(){
       closeMobileActionPanel();
+      closeMobileMenu();
       document.getElementById("calculatorView").classList.remove("hidden");
       document.getElementById("savedView").classList.add("hidden");
     }
@@ -859,9 +946,21 @@
     function showSavedView(){
       if(!requireUserName(showSavedView)) return;
       closeMobileActionPanel();
+      closeMobileMenu();
       document.getElementById("calculatorView").classList.add("hidden");
       document.getElementById("savedView").classList.remove("hidden");
       loadSavedTable();
+    }
+
+    function toggleMobileMenu(){
+      const menu = document.getElementById("mobileSettingsMenu");
+      if(!menu) return;
+      menu.classList.toggle("show");
+    }
+    function closeMobileMenu(){
+      const menu = document.getElementById("mobileSettingsMenu");
+      if(!menu) return;
+      menu.classList.remove("show");
     }
 
     /* ===== Mobile action panel ===== */
@@ -904,6 +1003,38 @@
         panel.style.transition = "";
         panel.style.transform = "";
         if(shouldClose) closeMobileActionPanel();
+      };
+
+      handle.addEventListener("touchstart", (e)=>startDrag(e.touches[0].clientY), {passive:true});
+      handle.addEventListener("touchmove", (e)=>moveDrag(e.touches[0].clientY), {passive:true});
+      handle.addEventListener("touchend", endDrag);
+
+      handle.addEventListener("mousedown", (e)=>startDrag(e.clientY));
+      document.addEventListener("mousemove", (e)=>moveDrag(e.clientY));
+      document.addEventListener("mouseup", endDrag);
+    }
+    function initSavedViewGesture(){
+      const handle = document.getElementById("savedViewHandle");
+      const savedView = document.getElementById("savedView");
+      if(!handle || !savedView) return;
+
+      const startDrag = (y)=>{
+        if(window.innerWidth >= 1024 || savedView.classList.contains("hidden")) return;
+        savedTouchStartY = y;
+        savedTouchDelta = 0;
+        savedDragging = true;
+      };
+      const moveDrag = (y)=>{
+        if(!savedDragging) return;
+        savedTouchDelta = Math.max(0, y - savedTouchStartY);
+      };
+      const endDrag = ()=>{
+        if(!savedDragging) return;
+        const shouldBack = savedTouchDelta > 70;
+        savedDragging = false;
+        savedTouchStartY = 0;
+        savedTouchDelta = 0;
+        if(shouldBack) showCalculator();
       };
 
       handle.addEventListener("touchstart", (e)=>startDrag(e.touches[0].clientY), {passive:true});
@@ -1577,12 +1708,23 @@ Official: https://www.irctc.co.in`;
       if(e.key === "Enter") saveUserNameFromPrompt();
     });
     window.addEventListener("resize", ()=>{
-      if(window.innerWidth >= 1024) closeMobileActionPanel();
+      if(window.innerWidth >= 1024){
+        closeMobileActionPanel();
+        closeMobileMenu();
+      }
     });
     document.addEventListener("keydown", (e)=>{
       if(e.key === "Escape") closeMobileActionPanel();
     });
+    document.addEventListener("click", (e)=>{
+      const menu = document.getElementById("mobileSettingsMenu");
+      const trigger = e.target.closest("button[aria-label='Open mobile menu']");
+      if(!menu || window.innerWidth >= 1024) return;
+      if(trigger) return;
+      if(!menu.contains(e.target)) closeMobileMenu();
+    });
     initMobilePanelGesture();
+    initSavedViewGesture();
 
     // Initial render
     renderCalendar();
