@@ -179,7 +179,8 @@
         box-shadow:0 -18px 50px rgba(15,23,42,.28);
         transform:translateY(104%);
         transition:transform .24s ease;
-        touch-action:none;
+        touch-action:pan-y;
+        -webkit-overflow-scrolling:touch;
       }
       #actionPanel.open{ transform:translateY(0); }
       .sheet-handle{
@@ -217,6 +218,12 @@
         font-size:.74rem;
         line-height:1.05rem;
       }
+      .drag-ruler-zone{
+        width:100%;
+        padding-top:6px;
+        padding-bottom:6px;
+        touch-action:none;
+      }
       #actionPanelOverlay{
         position:fixed;
         inset:0;
@@ -244,6 +251,97 @@
       }
       #actionPanelOverlay{ display:none !important; }
       #mobileActionSpacer{ display:none; }
+    }
+
+    #savedView{ -webkit-overflow-scrolling:touch; }
+
+    /* ===== Assistant ===== */
+    .assistant-fab{
+      position:fixed;
+      right:14px;
+      bottom:92px;
+      z-index:70;
+      width:58px;
+      height:58px;
+      border-radius:9999px;
+      border:0;
+      cursor:pointer;
+      background:conic-gradient(from 180deg,#22d3ee,#38bdf8,#6366f1,#14b8a6,#22d3ee);
+      box-shadow:0 12px 30px rgba(30,64,175,.3);
+      animation:assistantSpin 5s linear infinite;
+    }
+    .assistant-fab::after{
+      content:"";
+      position:absolute;
+      inset:7px;
+      border-radius:9999px;
+      background:rgba(255,255,255,.9);
+    }
+    .assistant-fab span{
+      position:relative;
+      z-index:1;
+      font-size:22px;
+      color:#0f172a;
+      font-weight:700;
+    }
+    .assistant-panel{
+      position:fixed;
+      right:14px;
+      bottom:160px;
+      z-index:70;
+      width:min(92vw,360px);
+      max-height:62vh;
+      overflow:auto;
+      border-radius:16px;
+      border:1px solid #bfdbfe;
+      background:linear-gradient(145deg,#f8fbff,#eef6ff);
+      box-shadow:0 18px 45px rgba(15,23,42,.26);
+      display:none;
+    }
+    .assistant-panel.show{ display:block; }
+    .dark .assistant-panel{
+      border-color:#334155;
+      background:linear-gradient(145deg,#0f172a,#1e293b);
+      box-shadow:0 18px 45px rgba(2,6,23,.6);
+    }
+    .assistant-head{
+      padding:10px 12px;
+      font-weight:700;
+      color:#1e3a8a;
+      border-bottom:1px solid #dbeafe;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .dark .assistant-head{
+      color:#bfdbfe;
+      border-bottom-color:#334155;
+    }
+    .assistant-body{
+      padding:10px 12px 12px;
+      font-size:.86rem;
+      line-height:1.35rem;
+      color:#0f172a;
+    }
+    .dark .assistant-body{ color:#e2e8f0; }
+    .assistant-chip{
+      display:inline-block;
+      font-size:.72rem;
+      font-weight:600;
+      border-radius:9999px;
+      padding:2px 8px;
+      background:#dbeafe;
+      color:#1e40af;
+      margin-right:6px;
+      margin-bottom:6px;
+    }
+    .dark .assistant-chip{
+      background:#1e293b;
+      color:#bfdbfe;
+    }
+    @keyframes assistantSpin{
+      from{ transform:rotate(0deg); }
+      to{ transform:rotate(360deg); }
     }
   </style>
 </head>
@@ -387,7 +485,7 @@
 
       <!-- RIGHT PANEL -->
       <div id="actionPanel" class="w-full lg:w-1/3 p-6 bg-blue-50 panel shadow dark:panel">
-        <div id="actionPanelHandleWrap" class="mobile-only justify-center">
+        <div id="actionPanelHandleWrap" class="mobile-only justify-center drag-ruler-zone">
           <div id="actionPanelHandle" class="sheet-handle" aria-hidden="true"></div>
         </div>
         <div class="mobile-only justify-center mb-3">
@@ -547,11 +645,21 @@
       Save Pin
     </button>
   </div>
+  <button id="assistantFab" class="assistant-fab" onclick="toggleAssistantPanel()" aria-label="Travel assistant">
+    <span>AI</span>
+  </button>
+  <div id="assistantPanel" class="assistant-panel" role="dialog" aria-modal="false" aria-label="Travel Assistant">
+    <div class="assistant-head">
+      <span>Travel Assistant</span>
+      <button onclick="toggleAssistantPanel(false)" class="text-xs px-2 py-1 rounded bg-slate-200 dark:bg-slate-700">Close</button>
+    </div>
+    <div id="assistantBody" class="assistant-body"></div>
+  </div>
   <div id="actionPanelOverlay" onclick="closeMobileActionPanel()"></div>
 
   <!-- ================= SAVED VIEW ================= -->
   <div id="savedView" class="hidden p-6 bg-gray-50 min-h-screen dark:panel">
-    <div id="savedViewHandleWrap" class="mobile-only justify-center mb-3 py-2">
+    <div id="savedViewHandleWrap" class="mobile-only justify-center mb-3 py-2 drag-ruler-zone">
       <div id="savedViewHandle" class="sheet-handle" aria-hidden="true"></div>
     </div>
     <div class="mobile-only mb-4">
@@ -629,6 +737,7 @@
     let savedTouchStartY = 0;
     let savedTouchDelta = 0;
     let savedDragging = false;
+    let assistantOpen = false;
 
     // Holidays TN - sample (2026). Replace/import per year.
     let tnHolidays = [
@@ -814,6 +923,7 @@
       }
 
       renderThreeMonthLeaveList();
+      updateAssistantSuggestions();
     }
     function renderThreeMonthLeaveList(){
       const container = document.getElementById("threeMonthLeaves");
@@ -957,6 +1067,8 @@
       document.getElementById("savedView").classList.add("hidden");
       const dock = document.getElementById("mobilePrimaryDock");
       if(dock) dock.classList.remove("hidden");
+      const fab = document.getElementById("assistantFab");
+      if(fab) fab.classList.remove("hidden");
     }
 
     function showSavedView(){
@@ -967,6 +1079,9 @@
       document.getElementById("savedView").classList.remove("hidden");
       const dock = document.getElementById("mobilePrimaryDock");
       if(dock) dock.classList.add("hidden");
+      toggleAssistantPanel(false);
+      const fab = document.getElementById("assistantFab");
+      if(fab) fab.classList.add("hidden");
       loadSavedTable();
     }
 
@@ -998,7 +1113,7 @@
     function openMobileActionPanel(){ setMobileActionPanel(true); }
     function closeMobileActionPanel(){ setMobileActionPanel(false); }
     function initMobilePanelGesture(){
-      const handle = document.getElementById("actionPanelHandle");
+      const handle = document.getElementById("actionPanelHandleWrap");
       const panel = document.getElementById("actionPanel");
       if(!handle || !panel) return;
 
@@ -1066,6 +1181,101 @@
       handle.addEventListener("mousedown", (e)=>startDrag(e.clientY));
       document.addEventListener("mousemove", (e)=>moveDrag(e.clientY));
       document.addEventListener("mouseup", endDrag);
+    }
+
+    /* ===== Assistant Suggestions ===== */
+    function toggleAssistantPanel(force){
+      const panel = document.getElementById("assistantPanel");
+      if(!panel) return;
+      if(typeof force === "boolean") assistantOpen = force;
+      else assistantOpen = !assistantOpen;
+      panel.classList.toggle("show", assistantOpen);
+      if(assistantOpen) updateAssistantSuggestions();
+    }
+    function isPastMonthView(){
+      const now = new Date();
+      const y = currentDate.getFullYear();
+      const m = currentDate.getMonth();
+      return y < now.getFullYear() || (y === now.getFullYear() && m < now.getMonth());
+    }
+    function monthDate(y,m,d){ return new Date(y,m,d); }
+    function isHoliday(d){
+      const key = isoDate(d);
+      return tnHolidays.some(h => h.date === key);
+    }
+    function fmt(d){
+      return d.toLocaleDateString("en-IN",{ weekday:"short", day:"2-digit", month:"short" });
+    }
+    function getWeekCandidates(year, month){
+      const days = new Date(year, month+1, 0).getDate();
+      const today = stripTime(new Date());
+      const arr = [];
+      for(let day=1; day<=days; day++){
+        const mon = monthDate(year, month, day);
+        if(mon.getDay() !== 1) continue;
+        const fri = addDays(mon, 4);
+        if(fri.getMonth() !== month) continue;
+        if(stripTime(fri) < today) continue;
+        let holidayInside = false;
+        for(let i=0; i<5; i++){
+          if(isHoliday(addDays(mon, i))){ holidayInside = true; break; }
+        }
+        arr.push({ mon, fri, holidayInside });
+      }
+      return arr;
+    }
+    function pickTwoWorkWeeks(year, month){
+      const c = getWeekCandidates(year, month);
+      const best = c.filter(x=>!x.holidayInside);
+      if(best.length >= 2) return best.slice(0,2);
+      return [...best, ...c.filter(x=>x.holidayInside)].slice(0,2);
+    }
+    function buildCycleText(week, idx){
+      const inboundTravel = addDays(week.mon, -1);
+      const inboundBooking = addDays(week.mon, -2);
+      const outboundTravel = week.fri;
+      const outboundBooking = addDays(week.fri, -1);
+      const chips = week.holidayInside
+        ? `<span class="assistant-chip">Has holiday in work week</span>`
+        : `<span class="assistant-chip">No holiday in work week</span>`;
+      return `
+        <div class="mb-3">
+          <div class="font-semibold mb-1">Cycle ${idx}</div>
+          <div>${chips}</div>
+          <div>Office week: <b>${fmt(week.mon)}</b> to <b>${fmt(week.fri)}</b> (Mon-Fri)</div>
+          <div>Madurai to Chennai travel: <b>${fmt(inboundTravel)}</b> | Book on <b>${fmt(inboundBooking)}</b></div>
+          <div>Chennai to Madurai travel: <b>${fmt(outboundTravel)}</b> | Book on <b>${fmt(outboundBooking)}</b></div>
+        </div>
+      `;
+    }
+    function updateAssistantSuggestions(){
+      const body = document.getElementById("assistantBody");
+      if(!body) return;
+      if(isPastMonthView()){
+        body.innerHTML = `
+          <div class="mb-2">Suggestions are only for current or upcoming months.</div>
+          <div class="assistant-chip">Change month to current/future</div>
+        `;
+        return;
+      }
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const monthLabel = currentDate.toLocaleDateString("en-IN",{ month:"long", year:"numeric" });
+      const picked = pickTwoWorkWeeks(year, month);
+      if(picked.length === 0){
+        body.innerHTML = `
+          <div class="mb-2"><b>${monthLabel}</b>: no valid Mon-Fri office week left in this month.</div>
+          <div>Try next month for 10 office-day split suggestions.</div>
+        `;
+        return;
+      }
+      let html = `<div class="mb-2"><b>${monthLabel}</b> suggestion for 10 office days (2 cycles x 5 days):</div>`;
+      picked.forEach((w,i)=>{ html += buildCycleText(w, i+1); });
+      if(picked.length < 2){
+        html += `<div class="assistant-chip">Only one valid cycle available in this month</div>`;
+      }
+      html += `<div class="text-xs mt-1">Rule used: prefer Monday-Friday office weeks without holidays in-between.</div>`;
+      body.innerHTML = html;
     }
 
     function loadSavedTable(){
@@ -1735,15 +1945,24 @@ Official: https://www.irctc.co.in`;
         closeMobileMenu();
       }
       const dock = document.getElementById("mobilePrimaryDock");
-      if(!dock) return;
-      if(window.innerWidth >= 1024){
-        dock.classList.add("hidden");
-      }else if(!document.getElementById("calculatorView").classList.contains("hidden")){
-        dock.classList.remove("hidden");
+      if(dock){
+        if(window.innerWidth >= 1024){
+          dock.classList.add("hidden");
+        }else if(!document.getElementById("calculatorView").classList.contains("hidden")){
+          dock.classList.remove("hidden");
+        }
+      }
+      const fab = document.getElementById("assistantFab");
+      if(fab){
+        if(window.innerWidth >= 1024 || document.getElementById("calculatorView").classList.contains("hidden")) fab.classList.add("hidden");
+        else fab.classList.remove("hidden");
       }
     });
     document.addEventListener("keydown", (e)=>{
-      if(e.key === "Escape") closeMobileActionPanel();
+      if(e.key === "Escape"){
+        closeMobileActionPanel();
+        toggleAssistantPanel(false);
+      }
     });
     document.addEventListener("click", (e)=>{
       const menu = document.getElementById("mobileSettingsMenu");
@@ -1751,6 +1970,12 @@ Official: https://www.irctc.co.in`;
       if(!menu || window.innerWidth >= 1024) return;
       if(trigger) return;
       if(!menu.contains(e.target)) closeMobileMenu();
+
+      const panel = document.getElementById("assistantPanel");
+      const fab = document.getElementById("assistantFab");
+      if(panel && fab && assistantOpen && !panel.contains(e.target) && !fab.contains(e.target)){
+        toggleAssistantPanel(false);
+      }
     });
     initMobilePanelGesture();
     initSavedViewGesture();
