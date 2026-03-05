@@ -330,6 +330,10 @@
       opacity:1;
       pointer-events:auto;
     }
+    .assistant-open{
+      overflow:hidden;
+      touch-action:none;
+    }
     .dark .assistant-panel{
       border-color:#334155;
       background:linear-gradient(145deg,#0f172a,#1e293b);
@@ -1420,6 +1424,7 @@
       else assistantOpen = !assistantOpen;
       panel.classList.toggle("show", assistantOpen);
       overlay.classList.toggle("show", assistantOpen);
+      document.body.classList.toggle("assistant-open", assistantOpen);
       if(assistantOpen){
         if(!assistantInitialized){
           assistantBookingMode = "general";
