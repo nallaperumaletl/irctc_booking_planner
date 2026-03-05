@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>IRCTC Booking Planner</title>
   <link rel="icon" type="image/svg+xml"
-    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%230ea5e9'/%3E%3Cstop offset='100%25' stop-color='%232563eb'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='30' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='32' r='20' fill='%23ffffff' fill-opacity='0.92'/%3E%3Ccircle cx='32' cy='32' r='2.8' fill='%231d4ed8'/%3E%3Cpath d='M32 32 L32 22' stroke='%231d4ed8' stroke-width='3.6' stroke-linecap='round'/%3E%3Cpath d='M32 32 L41 36' stroke='%231d4ed8' stroke-width='3.6' stroke-linecap='round'/%3E%3C/svg%3E">
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23000000'/%3E%3Cg fill='%23ffffff'%3E%3Cpath d='M20 18h24c4 0 7 3 7 7v14c0 5-4 9-9 9l4 4-3 3-6-6h-10l-6 6-3-3 4-4c-5 0-9-4-9-9V25c0-4 3-7 7-7z'/%3E%3Crect x='24' y='24' width='6' height='6' rx='1'/%3E%3Crect x='34' y='24' width='6' height='6' rx='1'/%3E%3Ccircle cx='25' cy='41' r='2.5'/%3E%3Ccircle cx='39' cy='41' r='2.5'/%3E%3C/g%3E%3C/svg%3E">
 
   <!-- ✅ Tailwind + Flatpickr + jsPDF -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -141,6 +141,7 @@
     }
     .name-modal-backdrop.show{ display:flex; }
     .name-modal{
+      position:relative;
       width:min(92vw,420px);
       border-radius:16px;
       padding:20px;
@@ -169,6 +170,24 @@
       background:#2563eb; color:#fff; font-weight:600;
     }
     .name-err{ margin-top:8px; min-height:1rem; font-size:.8rem; color:#dc2626; }
+    .name-close{
+      position:absolute;
+      top:10px;
+      right:10px;
+      width:30px;
+      height:30px;
+      border-radius:9999px;
+      border:1px solid #cbd5e1;
+      background:#ffffff;
+      color:#475569;
+      font-weight:700;
+      line-height:1;
+    }
+    .dark .name-close{
+      border-color:#475569;
+      background:#111827;
+      color:#cbd5e1;
+    }
 
     /* ===== Mobile-only action menu / panel ===== */
     .mobile-only{ display:none; }
@@ -557,17 +576,14 @@
   <div class="flex justify-between items-center bg-white shadow px-6 py-4 dark:panel">
     <h1 class="text-xl font-bold text-blue-600 flex items-center gap-2">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 64 64" aria-hidden="true">
-        <defs>
-          <linearGradient id="brandClockGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#06b6d4"/>
-            <stop offset="100%" stop-color="#2563eb"/>
-          </linearGradient>
-        </defs>
-        <circle cx="32" cy="32" r="30" fill="url(#brandClockGrad)"/>
-        <circle cx="32" cy="32" r="20" fill="#ffffff" fill-opacity="0.95"/>
-        <circle cx="32" cy="32" r="2.8" fill="#1d4ed8"/>
-        <path d="M32 32 L32 22" stroke="#1d4ed8" stroke-width="3.6" stroke-linecap="round"/>
-        <path d="M32 32 L41 36" stroke="#1d4ed8" stroke-width="3.6" stroke-linecap="round"/>
+        <circle cx="32" cy="32" r="30" fill="#000000"/>
+        <g fill="#ffffff">
+          <path d="M20 18h24c4 0 7 3 7 7v14c0 5-4 9-9 9l4 4-3 3-6-6h-10l-6 6-3-3 4-4c-5 0-9-4-9-9V25c0-4 3-7 7-7z"/>
+          <rect x="24" y="24" width="6" height="6" rx="1"/>
+          <rect x="34" y="24" width="6" height="6" rx="1"/>
+          <circle cx="25" cy="41" r="2.5"/>
+          <circle cx="39" cy="41" r="2.5"/>
+        </g>
       </svg>
       <span>IRCTC Booking Planner</span>
     </h1>
@@ -941,6 +957,7 @@
   <!-- Username Prompt Modal -->
   <div id="nameModalBackdrop" class="name-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="namePromptTitle">
     <div class="name-modal">
+      <button id="nameCloseBtn" class="name-close" type="button" aria-label="Skip name">×</button>
       <div id="namePromptTitle" class="name-title">Welcome to IRCTC Planner</div>
       <div class="name-sub">Please enter your name to continue.</div>
       <input id="nameInput" class="name-input" type="text" maxlength="40" placeholder="Enter your name" autocomplete="name">
@@ -1041,6 +1058,15 @@
         return;
       }
       currentUserName = cleaned;
+      localStorage.setItem("irctcUserName", currentUserName);
+      if(namePromptTimer){ clearTimeout(namePromptTimer); namePromptTimer = null; }
+      closeNamePrompt();
+      const pending = pendingProtectedAction;
+      pendingProtectedAction = null;
+      if(typeof pending === "function") pending();
+    }
+    function skipUserNameFromPrompt(){
+      currentUserName = "Hello buddy!";
       localStorage.setItem("irctcUserName", currentUserName);
       if(namePromptTimer){ clearTimeout(namePromptTimer); namePromptTimer = null; }
       closeNamePrompt();
@@ -2362,6 +2388,7 @@ Official: https://www.irctc.co.in`;
     }
 
     document.getElementById("nameSubmitBtn").addEventListener("click", saveUserNameFromPrompt);
+    document.getElementById("nameCloseBtn").addEventListener("click", skipUserNameFromPrompt);
     document.getElementById("nameInput").addEventListener("keydown", (e)=>{
       if(e.key === "Enter") saveUserNameFromPrompt();
     });
