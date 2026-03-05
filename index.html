@@ -331,6 +331,10 @@
       pointer-events:none;
       transition:opacity .2s ease, transform .2s ease;
     }
+    .assistant-panel.expanded{
+      width:min(96vw,520px);
+      max-height:78vh;
+    }
     .assistant-panel.show{
       opacity:1;
       transform:translateY(0) scale(1);
@@ -366,6 +370,7 @@
       display:flex;
       align-items:center;
       justify-content:flex-end;
+      gap:8px;
     }
     .dark .assistant-head{
       color:#bfdbfe;
@@ -559,6 +564,20 @@
       cursor:not-allowed;
     }
     .dark .assistant-slot-btn{
+      border-color:#334155;
+      background:#0f172a;
+      color:#bfdbfe;
+    }
+    .assistant-expand-btn{
+      border:1px solid #bfdbfe;
+      background:#eff6ff;
+      color:#1e3a8a;
+      border-radius:8px;
+      padding:2px 8px;
+      font-size:.72rem;
+      font-weight:700;
+    }
+    .dark .assistant-expand-btn{
       border-color:#334155;
       background:#0f172a;
       color:#bfdbfe;
@@ -886,6 +905,7 @@
   </button>
   <div id="assistantPanel" class="assistant-panel" role="dialog" aria-modal="false" aria-label="Travel Assistant">
     <div class="assistant-head">
+      <button id="assistantExpandBtn" onclick="toggleAssistantSize()" class="assistant-expand-btn">Expand</button>
       <button onclick="toggleAssistantPanel(false)" class="text-xs px-2 py-1 rounded bg-slate-200 dark:bg-slate-700">Close</button>
     </div>
     <div class="assistant-modes">
@@ -987,6 +1007,7 @@
     let assistantBookingMode = "general";
     let assistantGeneralSlot = 0;
     let assistantInitialized = false;
+    let assistantExpanded = false;
 
     // Holidays TN - sample (2026). Replace/import per year.
     let tnHolidays = [
@@ -1451,6 +1472,12 @@
       panel.classList.toggle("show", assistantOpen);
       overlay.classList.toggle("show", assistantOpen);
       document.body.classList.toggle("assistant-open", assistantOpen);
+      if(!assistantOpen){
+        assistantExpanded = false;
+        panel.classList.remove("expanded");
+        const expandBtn = document.getElementById("assistantExpandBtn");
+        if(expandBtn) expandBtn.textContent = "Expand";
+      }
       if(assistantOpen){
         if(!assistantInitialized){
           assistantBookingMode = "general";
@@ -1464,6 +1491,14 @@
         refreshAssistantSlotUI();
         updateAssistantSuggestions();
       }
+    }
+    function toggleAssistantSize(){
+      const panel = document.getElementById("assistantPanel");
+      const btn = document.getElementById("assistantExpandBtn");
+      if(!panel || !btn) return;
+      assistantExpanded = !assistantExpanded;
+      panel.classList.toggle("expanded", assistantExpanded);
+      btn.textContent = assistantExpanded ? "Compact" : "Expand";
     }
     function setAssistantBookingMode(modeName){
       assistantBookingMode = modeName === "tatkal" ? "tatkal" : "general";
