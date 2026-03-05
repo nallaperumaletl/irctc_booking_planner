@@ -167,6 +167,7 @@
     @media (max-width: 1023px){
       .mobile-only{ display:flex; }
       .desktop-only-mobile-hide{ display:none !important; }
+      .card-value{ font-size:1.55rem; }
       #actionPanel{
         position:fixed;
         left:0; right:0; bottom:0;
@@ -195,6 +196,27 @@
       .mobile-menu-panel.show{
         display:flex;
       }
+      .mobile-primary-dock{
+        position:fixed;
+        left:12px;
+        right:12px;
+        bottom:10px;
+        z-index:45;
+        border-radius:14px;
+        padding:8px;
+        background:rgba(255,255,255,.95);
+        border:1px solid #cbd5e1;
+        box-shadow:0 12px 30px rgba(15,23,42,.18);
+      }
+      .dark .mobile-primary-dock{
+        background:rgba(15,23,42,.96);
+        border-color:#334155;
+      }
+      .tiny-mobile-btn{
+        padding:.45rem .55rem;
+        font-size:.74rem;
+        line-height:1.05rem;
+      }
       #actionPanelOverlay{
         position:fixed;
         inset:0;
@@ -209,7 +231,7 @@
         pointer-events:auto;
       }
       .mobile-panel-open{ overflow:hidden; }
-      #mobileActionSpacer{ display:block; height:82px; }
+      #mobileActionSpacer{ display:block; height:98px; }
     }
 
     @media (min-width: 1024px){
@@ -300,27 +322,23 @@
       <button onclick="setMode('booking')" id="bookingBtnMain"
         class="flex-1 px-3 py-2 rounded-lg text-sm border">Booking Mode</button>
     </div>
-    <div class="text-xs rounded-lg px-3 py-2 bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-      <div>Travel: <span id="mobileTravelSummary">--</span></div>
-      <div>Booking: <span id="mobileBookingSummary">--</span></div>
+    <div class="grid grid-cols-2 gap-2">
+      <div class="rounded-lg px-3 py-2 bg-blue-50 border border-blue-200 dark:bg-slate-900 dark:border-slate-700">
+        <div class="text-[10px] uppercase tracking-wide font-semibold text-blue-700 dark:text-blue-300">Travel Date</div>
+        <div id="mobileTravelSummary" class="text-sm font-semibold text-slate-800 dark:text-slate-100">--</div>
+      </div>
+      <div class="rounded-lg px-3 py-2 bg-emerald-50 border border-emerald-200 dark:bg-slate-900 dark:border-slate-700">
+        <div class="text-[10px] uppercase tracking-wide font-semibold text-emerald-700 dark:text-emerald-300">Booking Date</div>
+        <div id="mobileBookingSummary" class="text-sm font-semibold text-slate-800 dark:text-slate-100">--</div>
+      </div>
     </div>
-    <div class="flex gap-2">
-      <button onclick="openMobileActionPanel()"
-        class="flex-1 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm">
-        Actions Menu
-      </button>
+    <div class="flex gap-2 justify-end">
       <button onclick="showSavedView()"
-        class="flex-1 px-3 py-2 bg-slate-700 text-white rounded-lg text-sm">
+        class="tiny-mobile-btn bg-slate-700 text-white rounded-lg">
         Saved Plans
       </button>
-    </div>
-    <div class="flex gap-2">
-      <button onclick="savePlan()"
-        class="flex-1 px-3 py-2 bg-amber-500 text-slate-900 rounded-lg text-sm font-semibold">
-        Save Pin
-      </button>
       <button onclick="copyShareLink()"
-        class="flex-1 px-3 py-2 bg-slate-200 rounded-lg text-sm dark:bg-slate-700 dark:text-slate-100">
+        class="tiny-mobile-btn bg-slate-200 rounded-lg dark:bg-slate-700 dark:text-slate-100">
         Copy Plan Link
       </button>
     </div>
@@ -519,11 +537,21 @@
     </div>
     <div id="mobileActionSpacer"></div>
   </div>
+  <div id="mobilePrimaryDock" class="mobile-primary-dock mobile-only items-center gap-2">
+    <button onclick="openMobileActionPanel()"
+      class="flex-1 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold">
+      Actions Menu
+    </button>
+    <button onclick="savePlan()"
+      class="flex-1 px-3 py-2 bg-amber-500 text-slate-900 rounded-lg text-sm font-semibold">
+      Save Pin
+    </button>
+  </div>
   <div id="actionPanelOverlay" onclick="closeMobileActionPanel()"></div>
 
   <!-- ================= SAVED VIEW ================= -->
   <div id="savedView" class="hidden p-6 bg-gray-50 min-h-screen dark:panel">
-    <div id="savedViewHandleWrap" class="mobile-only justify-center mb-3">
+    <div id="savedViewHandleWrap" class="mobile-only justify-center mb-3 py-2">
       <div id="savedViewHandle" class="sheet-handle" aria-hidden="true"></div>
     </div>
     <div class="mobile-only mb-4">
@@ -927,6 +955,8 @@
       closeMobileMenu();
       document.getElementById("calculatorView").classList.remove("hidden");
       document.getElementById("savedView").classList.add("hidden");
+      const dock = document.getElementById("mobilePrimaryDock");
+      if(dock) dock.classList.remove("hidden");
     }
 
     function showSavedView(){
@@ -935,6 +965,8 @@
       closeMobileMenu();
       document.getElementById("calculatorView").classList.add("hidden");
       document.getElementById("savedView").classList.remove("hidden");
+      const dock = document.getElementById("mobilePrimaryDock");
+      if(dock) dock.classList.add("hidden");
       loadSavedTable();
     }
 
@@ -1000,7 +1032,7 @@
       document.addEventListener("mouseup", endDrag);
     }
     function initSavedViewGesture(){
-      const handle = document.getElementById("savedViewHandle");
+      const handle = document.getElementById("savedViewHandleWrap");
       const savedView = document.getElementById("savedView");
       if(!handle || !savedView) return;
 
@@ -1009,10 +1041,12 @@
         savedTouchStartY = y;
         savedTouchDelta = 0;
         savedDragging = true;
+        savedView.style.transition = "none";
       };
       const moveDrag = (y)=>{
         if(!savedDragging) return;
         savedTouchDelta = Math.max(0, y - savedTouchStartY);
+        savedView.style.transform = `translateY(${savedTouchDelta}px)`;
       };
       const endDrag = ()=>{
         if(!savedDragging) return;
@@ -1020,6 +1054,8 @@
         savedDragging = false;
         savedTouchStartY = 0;
         savedTouchDelta = 0;
+        savedView.style.transition = "";
+        savedView.style.transform = "";
         if(shouldBack) showCalculator();
       };
 
@@ -1697,6 +1733,13 @@ Official: https://www.irctc.co.in`;
       if(window.innerWidth >= 1024){
         closeMobileActionPanel();
         closeMobileMenu();
+      }
+      const dock = document.getElementById("mobilePrimaryDock");
+      if(!dock) return;
+      if(window.innerWidth >= 1024){
+        dock.classList.add("hidden");
+      }else if(!document.getElementById("calculatorView").classList.contains("hidden")){
+        dock.classList.remove("hidden");
       }
     });
     document.addEventListener("keydown", (e)=>{
