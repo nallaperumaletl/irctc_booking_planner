@@ -375,9 +375,25 @@
       margin-bottom:10px;
       background:#ffffff;
     }
+    .assistant-cycle.good{
+      border-color:#86efac;
+      background:#ecfdf5;
+    }
+    .assistant-cycle.bad{
+      border-color:#fca5a5;
+      background:#fef2f2;
+    }
     .dark .assistant-cycle{
       border-color:#334155;
       background:#0b1220;
+    }
+    .dark .assistant-cycle.good{
+      border-color:#16a34a;
+      background:#052e1a;
+    }
+    .dark .assistant-cycle.bad{
+      border-color:#dc2626;
+      background:#2a0f13;
     }
     .route-box{
       display:block;
@@ -429,6 +445,35 @@
       flex-wrap:nowrap;
       overflow-x:auto;
     }
+    .assistant-status-good{
+      background:#22c55e;
+      color:#ffffff;
+      border-color:#16a34a;
+    }
+    .assistant-status-bad{
+      background:#ef4444;
+      color:#ffffff;
+      border-color:#dc2626;
+    }
+    .assistant-chip-warn{
+      background:#fee2e2;
+      color:#991b1b;
+      border:1px solid #fecaca;
+    }
+    .dark .assistant-chip-warn{
+      background:#3f1016;
+      color:#fecaca;
+      border-color:#7f1d1d;
+    }
+    .assistant-note-bad{
+      color:#b91c1c;
+      font-size:.76rem;
+      font-weight:600;
+      margin-top:4px;
+      white-space:nowrap;
+      overflow-x:auto;
+    }
+    .dark .assistant-note-bad{ color:#fca5a5; }
     @media (min-width: 1024px){
       .assistant-panel{ width:420px; }
     }
@@ -460,6 +505,38 @@
       background:#2563eb;
       color:#fff;
       border-color:#2563eb;
+    }
+    .assistant-slot{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:8px 12px 0;
+    }
+    .assistant-slot-label{
+      font-size:.76rem;
+      font-weight:700;
+      color:#1e3a8a;
+      white-space:nowrap;
+    }
+    .dark .assistant-slot-label{ color:#bfdbfe; }
+    .assistant-slot-btn{
+      border:1px solid #bfdbfe;
+      background:#eff6ff;
+      color:#1e3a8a;
+      border-radius:8px;
+      padding:2px 9px;
+      font-size:.78rem;
+      font-weight:700;
+    }
+    .assistant-slot-btn:disabled{
+      opacity:.45;
+      cursor:not-allowed;
+    }
+    .dark .assistant-slot-btn{
+      border-color:#334155;
+      background:#0f172a;
+      color:#bfdbfe;
     }
     @keyframes assistantSpin{
       from{ transform:rotate(0deg); }
@@ -778,6 +855,11 @@
       <button id="assistantGeneralBtn" class="assistant-mode-btn" onclick="setAssistantBookingMode('general')">General 60D</button>
       <button id="assistantTatkalBtn" class="assistant-mode-btn" onclick="setAssistantBookingMode('tatkal')">Tatkal</button>
     </div>
+    <div id="assistantSlotRow" class="assistant-slot">
+      <button id="assistantSlotPrev" class="assistant-slot-btn" onclick="changeAssistantMonthSlot(-1)">◀</button>
+      <div id="assistantSlotLabel" class="assistant-slot-label">--</div>
+      <button id="assistantSlotNext" class="assistant-slot-btn" onclick="changeAssistantMonthSlot(1)">▶</button>
+    </div>
     <div id="assistantBody" class="assistant-body"></div>
   </div>
   <div id="assistantOverlay" class="assistant-overlay" onclick="toggleAssistantPanel(false)"></div>
@@ -865,6 +947,7 @@
     let savedDragging = false;
     let assistantOpen = false;
     let assistantBookingMode = "general";
+    let assistantGeneralSlot = 0;
 
     // Holidays TN - sample (2026). Replace/import per year.
     let tnHolidays = [
@@ -1319,7 +1402,10 @@
       else assistantOpen = !assistantOpen;
       panel.classList.toggle("show", assistantOpen);
       overlay.classList.toggle("show", assistantOpen);
-      if(assistantOpen) updateAssistantSuggestions();
+      if(assistantOpen){
+        refreshAssistantSlotUI();
+        updateAssistantSuggestions();
+      }
     }
     function setAssistantBookingMode(modeName){
       assistantBookingMode = modeName === "tatkal" ? "tatkal" : "general";
@@ -1327,6 +1413,39 @@
       const t = document.getElementById("assistantTatkalBtn");
       if(g) g.classList.toggle("active", assistantBookingMode === "general");
       if(t) t.classList.toggle("active", assistantBookingMode === "tatkal");
+      if(assistantBookingMode === "general") assistantGeneralSlot = 0;
+      refreshAssistantSlotUI();
+      updateAssistantSuggestions();
+    }
+    function getEarliestGeneralTravelMonthStart(){
+      const d = stripTime(new Date());
+      d.setDate(d.getDate() + 60);
+      return new Date(d.getFullYear(), d.getMonth(), 1);
+    }
+    function getGeneralTravelMonthBySlot(slot){
+      const start = getEarliestGeneralTravelMonthStart();
+      const safeSlot = Math.max(0, Math.min(5, slot));
+      return new Date(start.getFullYear(), start.getMonth() + safeSlot, 1);
+    }
+    function refreshAssistantSlotUI(){
+      const row = document.getElementById("assistantSlotRow");
+      const label = document.getElementById("assistantSlotLabel");
+      const prev = document.getElementById("assistantSlotPrev");
+      const next = document.getElementById("assistantSlotNext");
+      if(!row || !label || !prev || !next) return;
+      const show = assistantBookingMode === "general";
+      row.style.display = show ? "flex" : "none";
+      if(!show) return;
+      const m = getGeneralTravelMonthBySlot(assistantGeneralSlot);
+      label.textContent = m.toLocaleDateString("en-IN", { month:"long", year:"numeric" }) + ` (slot ${assistantGeneralSlot+1}/6)`;
+      prev.disabled = assistantGeneralSlot <= 0;
+      next.disabled = assistantGeneralSlot >= 5;
+    }
+    function changeAssistantMonthSlot(delta){
+      const nextSlot = Math.max(0, Math.min(5, assistantGeneralSlot + delta));
+      if(nextSlot === assistantGeneralSlot) return;
+      assistantGeneralSlot = nextSlot;
+      refreshAssistantSlotUI();
       updateAssistantSuggestions();
     }
     function isPastMonthView(){
@@ -1342,6 +1461,19 @@
     function isHoliday(d){
       const key = isoDate(d);
       return tnHolidays.some(h => h.date === key);
+    }
+    function holidayLabelForDate(d){
+      const key = isoDate(d);
+      const item = tnHolidays.find(h => h.date === key);
+      return item ? item.label : "";
+    }
+    function weekHolidayLabels(mon){
+      const labels = [];
+      for(let i=0; i<5; i++){
+        const l = holidayLabelForDate(addDays(mon, i));
+        if(l) labels.push(l);
+      }
+      return labels;
     }
     function fmt(d){
       return d.toLocaleDateString("en-IN",{ weekday:"short", day:"2-digit", month:"short" });
@@ -1386,7 +1518,51 @@
       if(best.length >= 2) return best.slice(0,2);
       return [...best, ...c.filter(x=>x.holidayInside)].slice(0,2);
     }
-    function buildTatkalCycleText(week, idx){
+    function evaluateTatkalWeeks(year, month){
+      const rows = getWeekCandidates(year, month).map((week, i)=>{
+        const inboundTravel = addDays(week.mon, -1);
+        const inboundBooking = addDays(week.mon, -2);
+        const outboundTravel = week.fri;
+        const outboundBooking = addDays(week.fri, -1);
+        const hasFutureBooking = isOnOrAfterToday(inboundBooking) || isOnOrAfterToday(outboundBooking);
+        return {
+          idx: i + 1,
+          week,
+          inboundTravel,
+          inboundBooking,
+          outboundTravel,
+          outboundBooking,
+          hasFutureBooking,
+          selected: false,
+          reason: ""
+        };
+      });
+
+      const eligible = rows.filter(r => r.hasFutureBooking);
+      const preferred = eligible.filter(r => !r.week.holidayInside);
+      preferred.slice(0,2).forEach(r => { r.selected = true; });
+      if(preferred.filter(r => r.selected).length < 2){
+        const needed = 2 - preferred.filter(r => r.selected).length;
+        eligible.filter(r => r.week.holidayInside).slice(0, needed).forEach(r => { r.selected = true; });
+      }
+
+      rows.forEach(r=>{
+        if(r.selected) return;
+        if(!r.hasFutureBooking){
+          r.reason = "Ignored: booking dates already passed";
+          return;
+        }
+        if(r.week.holidayInside){
+          const labels = weekHolidayLabels(r.week.mon);
+          r.reason = labels.length ? `Ignored: holiday in office week (${labels.join(", ")})` : "Ignored: holiday in office week";
+          return;
+        }
+        r.reason = "Ignored: only first 2 preferred cycles are suggested";
+      });
+      return rows;
+    }
+    function buildTatkalCycleText(data){
+      const week = data.week;
       const inboundTravel = addDays(week.mon, -1);
       const inboundBooking = addDays(week.mon, -2);
       const outboundTravel = week.fri;
@@ -1396,18 +1572,25 @@
       const chips = week.holidayInside
         ? `<span class="assistant-chip">Has holiday in work week</span>`
         : `<span class="assistant-chip">No holiday in work week</span>`;
-      const holidayLine = week.holidayInside ? "Has holiday" : "No holidays";
+      const holidayLabels = weekHolidayLabels(week.mon);
+      const holidayLine = holidayLabels.length ? `Holidays: ${holidayLabels.join(", ")}` : "No holidays";
+      const holidayChipClass = holidayLabels.length ? "assistant-chip assistant-chip-warn" : "assistant-chip";
+      const stateChip = data.selected
+        ? `<span class="assistant-chip assistant-status-good">Suggested Slot</span>`
+        : `<span class="assistant-chip assistant-status-bad">Ignored Slot</span>`;
+      const reasonLine = data.selected ? "" : `<div class="assistant-note-bad">${data.reason}</div>`;
       return `
-        <div class="assistant-cycle">
-          <div class="font-semibold mb-1">Cycle ${idx} • Tatkal</div>
-          <div class="assistant-chip-row">${chips}</div>
+        <div class="assistant-cycle ${data.selected ? "good" : "bad"}">
+          <div class="font-semibold mb-1">Cycle ${data.idx} • Tatkal</div>
+          <div class="assistant-chip-row">${stateChip}${chips}</div>
           <div>Office week: <b>${fmt(week.mon)}</b> to <b>${fmt(week.fri)}</b> (Mon-Fri)</div>
           <div class="route-box">
-            <div class="assistant-route-head"><span>Madurai → Chennai</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(planBooking)}')">Plan This Cycle</button></div>
+            <div class="assistant-route-head"><span>Madurai → Chennai</span>${data.selected ? `<button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(planBooking)}')">Plan This Cycle</button>` : ""}</div>
             <div>Travel: <b>${fmt(inboundTravel)}</b> | Book: <b>${fmt(inboundBooking)}</b></div>
-            <div><span class="assistant-chip">${holidayLine}</span></div>
+            <div><span class="${holidayChipClass}">${holidayLine}</span></div>
           </div>
-          <div class="route-box"><b>Chennai → Madurai</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book: <b>${fmt(outboundBooking)}</b><br><span class="assistant-chip">${holidayLine}</span></div>
+          <div class="route-box"><b>Chennai → Madurai</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book: <b>${fmt(outboundBooking)}</b><br><span class="${holidayChipClass}">${holidayLine}</span></div>
+          ${reasonLine}
         </div>
       `;
     }
@@ -1422,6 +1605,7 @@
         ? `<span class="assistant-chip">Has holiday in work week</span>`
         : `<span class="assistant-chip">No holiday in work week</span>`;
       const holidayLine = week.holidayInside ? "Has holiday" : "No holidays";
+      const holidayChipClass = week.holidayInside ? "assistant-chip assistant-chip-warn" : "assistant-chip";
       return `
         <div class="assistant-cycle">
           <div class="font-semibold mb-1">Cycle ${idx} • General (60 Days)</div>
@@ -1430,41 +1614,49 @@
           <div class="route-box">
             <div class="assistant-route-head"><span>Madurai → Chennai</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(planBooking)}','60')">Plan This Cycle</button></div>
             <div>Travel: <b>${fmt(inboundTravel)}</b> | Book (60D): <b>${fmt(inboundBooking)}</b></div>
-            <div><span class="assistant-chip">${holidayLine}</span></div>
+            <div><span class="${holidayChipClass}">${holidayLine}</span></div>
           </div>
-          <div class="route-box"><b>Chennai → Madurai</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book (60D): <b>${fmt(outboundBooking)}</b><br><span class="assistant-chip">${holidayLine}</span></div>
+          <div class="route-box"><b>Chennai → Madurai</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book (60D): <b>${fmt(outboundBooking)}</b><br><span class="${holidayChipClass}">${holidayLine}</span></div>
         </div>
       `;
     }
     function updateAssistantSuggestions(){
       const body = document.getElementById("assistantBody");
       if(!body) return;
-      if(isPastMonthView()){
+      const isGeneral = assistantBookingMode === "general";
+      if(!isGeneral && isPastMonthView()){
         body.innerHTML = `
           <div class="mb-2">Suggestions are only for current or upcoming months.</div>
           <div class="assistant-chip">Change month to current/future</div>
         `;
         return;
       }
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth();
-      const monthLabel = currentDate.toLocaleDateString("en-IN",{ month:"long", year:"numeric" });
-      const picked = pickTwoWorkWeeks(year, month);
+      const targetMonth = isGeneral
+        ? getGeneralTravelMonthBySlot(assistantGeneralSlot)
+        : new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const year = targetMonth.getFullYear();
+      const month = targetMonth.getMonth();
+      const monthLabel = targetMonth.toLocaleDateString("en-IN",{ month:"long", year:"numeric" });
+      const picked = isGeneral ? pickTwoWorkWeeks(year, month) : evaluateTatkalWeeks(year, month);
       if(picked.length === 0){
         body.innerHTML = `
           <div class="mb-2"><b>${monthLabel}</b>: no valid Mon-Fri office week left in this month.</div>
-          <div>Try next month for 10 office-day split suggestions.</div>
+          <div>${isGeneral ? "Try next slot month." : "Try next calendar month."}</div>
         `;
         return;
       }
-      const modeLabel = assistantBookingMode === "general" ? "General 60D" : "Tatkal";
+      const modeLabel = isGeneral ? "General 60D" : "Tatkal";
       let html = `<div class="mb-2"><b>${monthLabel}</b> • <b>${modeLabel}</b> suggestion for 10 office days (2 cycles x 5 days).</div>`;
       let count = 0;
       picked.forEach((w,i)=>{
-        const row = assistantBookingMode === "general" ? buildGeneralCycleText(w, i+1) : buildTatkalCycleText(w, i+1);
+        const row = isGeneral ? buildGeneralCycleText(w, i+1) : buildTatkalCycleText(w);
         if(row){
           html += row;
-          count++;
+          if(isGeneral){
+            count++;
+          }else if(w.selected){
+            count++;
+          }
         }
       });
       if(count === 0){
