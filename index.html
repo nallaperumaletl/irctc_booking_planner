@@ -188,6 +188,21 @@
       background:#111827;
       color:#cbd5e1;
     }
+    .route-select{
+      width:100%;
+      margin-top:10px;
+      border-radius:10px;
+      padding:.6rem .75rem;
+      border:1px solid #94a3b8;
+      background:#ffffff;
+      color:#0f172a;
+      font-size:.9rem;
+    }
+    .dark .route-select{
+      border-color:#475569;
+      background:#0f172a;
+      color:#e2e8f0;
+    }
 
     /* ===== Mobile-only action menu / panel ===== */
     .mobile-only{ display:none; }
@@ -986,6 +1001,23 @@
     </div>
   </div>
 
+  <!-- Route Preferences Prompt Modal -->
+  <div id="routeModalBackdrop" class="name-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="routePromptTitle">
+    <div class="name-modal">
+      <button id="routeCloseBtn" class="name-close" type="button" aria-label="Skip route setup">×</button>
+      <div id="routePromptTitle" class="name-title">Travel Route Setup</div>
+      <div class="name-sub">Set your default source, destination, and weekly direction preference.</div>
+      <input id="sourceInput" class="name-input" type="text" maxlength="40" placeholder="Source (e.g., Madurai)">
+      <input id="destinationInput" class="name-input" type="text" maxlength="40" placeholder="Destination (e.g., Chennai)">
+      <select id="routePreferenceSelect" class="route-select">
+        <option value="source_to_dest_monday" selected>Monday: Source → Destination, Friday: Destination → Source</option>
+        <option value="dest_to_source_monday">Monday: Destination → Source, Friday: Source → Destination</option>
+      </select>
+      <button id="routeSubmitBtn" class="name-btn" type="button">Save Route</button>
+      <div id="routeError" class="name-err"></div>
+    </div>
+  </div>
+
   <!-- ================= JAVASCRIPT ================= -->
   <script>
     let currentDate = new Date();
@@ -997,6 +1029,11 @@
     let currentUserName = "";
     let pendingProtectedAction = null;
     let namePromptTimer = null;
+    let routePromptTimer = null;
+    let routeConfigured = false;
+    let routeSource = "Madurai";
+    let routeDestination = "Chennai";
+    let routePreference = "source_to_dest_monday";
     let panelTouchStartY = 0;
     let panelTouchDelta = 0;
     let panelDragging = false;
@@ -1047,10 +1084,16 @@
     /* ===== Username guard ===== */
     (function initUserGuard(){
       currentUserName = (localStorage.getItem("irctcUserName") || "").trim();
+      routeSource = (localStorage.getItem("irctcRouteSource") || "").trim() || "Madurai";
+      routeDestination = (localStorage.getItem("irctcRouteDestination") || "").trim() || "Chennai";
+      routePreference = (localStorage.getItem("irctcRoutePreference") || "").trim() || "source_to_dest_monday";
+      routeConfigured = !!(localStorage.getItem("irctcRouteSource") && localStorage.getItem("irctcRouteDestination"));
       if(!currentUserName){
         namePromptTimer = setTimeout(()=>{
           openNamePrompt();
         }, 15000);
+      }else if(!routeConfigured){
+        scheduleRoutePrompt(2500);
       }
     })();
     function openNamePrompt(){
@@ -1085,6 +1128,7 @@
       const pending = pendingProtectedAction;
       pendingProtectedAction = null;
       if(typeof pending === "function") pending();
+      scheduleRoutePrompt(2500);
     }
     function skipUserNameFromPrompt(){
       currentUserName = "Hello buddy!";
@@ -1094,12 +1138,72 @@
       const pending = pendingProtectedAction;
       pendingProtectedAction = null;
       if(typeof pending === "function") pending();
+      scheduleRoutePrompt(2500);
     }
     function requireUserName(actionFn){
       if(currentUserName) return true;
       pendingProtectedAction = actionFn || null;
       openNamePrompt();
       return false;
+    }
+
+    function scheduleRoutePrompt(delayMs = 2500){
+      if(routeConfigured) return;
+      if(routePromptTimer) clearTimeout(routePromptTimer);
+      routePromptTimer = setTimeout(()=>openRoutePrompt(), delayMs);
+    }
+    function openRoutePrompt(){
+      if(routeConfigured) return;
+      const backdrop = document.getElementById("routeModalBackdrop");
+      const source = document.getElementById("sourceInput");
+      const destination = document.getElementById("destinationInput");
+      const pref = document.getElementById("routePreferenceSelect");
+      const err = document.getElementById("routeError");
+      if(!backdrop || !source || !destination || !pref || !err) return;
+      source.value = routeSource;
+      destination.value = routeDestination;
+      pref.value = routePreference || "source_to_dest_monday";
+      err.textContent = "";
+      backdrop.classList.add("show");
+      setTimeout(()=>source.focus(), 0);
+    }
+    function closeRoutePrompt(){
+      const backdrop = document.getElementById("routeModalBackdrop");
+      if(backdrop) backdrop.classList.remove("show");
+    }
+    function persistRoute(source, destination, preference){
+      routeSource = source;
+      routeDestination = destination;
+      routePreference = preference || "source_to_dest_monday";
+      routeConfigured = true;
+      localStorage.setItem("irctcRouteSource", routeSource);
+      localStorage.setItem("irctcRouteDestination", routeDestination);
+      localStorage.setItem("irctcRoutePreference", routePreference);
+    }
+    function saveRouteFromPrompt(){
+      const source = document.getElementById("sourceInput");
+      const destination = document.getElementById("destinationInput");
+      const pref = document.getElementById("routePreferenceSelect");
+      const err = document.getElementById("routeError");
+      if(!source || !destination || !pref || !err) return;
+      const s = (source.value || "").trim().replace(/\s+/g, " ");
+      const d = (destination.value || "").trim().replace(/\s+/g, " ");
+      if(s.length < 2 || d.length < 2){
+        err.textContent = "Please enter at least 2 characters for source and destination.";
+        return;
+      }
+      if(s.toLowerCase() === d.toLowerCase()){
+        err.textContent = "Source and destination cannot be same.";
+        return;
+      }
+      persistRoute(s, d, pref.value);
+      closeRoutePrompt();
+      updateAssistantSuggestions();
+    }
+    function skipRouteFromPrompt(){
+      persistRoute(routeSource || "Madurai", routeDestination || "Chennai", routePreference || "source_to_dest_monday");
+      closeRoutePrompt();
+      updateAssistantSuggestions();
     }
 
     /* ===== UI State ===== */
@@ -1568,6 +1672,31 @@
       }
       return labels;
     }
+    function hasRequiredGap(candidateMon, chosenWeeks, minGapDays = 14){
+      return chosenWeeks.every(w => Math.abs(stripTime(candidateMon) - stripTime(w.mon)) >= (minGapDays * 24 * 60 * 60 * 1000));
+    }
+    function holidaySummaryLine(week){
+      const labels = weekHolidayLabels(week.mon);
+      if(labels.length === 0) return "";
+      return `Holiday alert: ${fmt(week.mon)} to ${fmt(week.fri)} - ${labels.length} holiday(s) (${labels.join(", ")})`;
+    }
+    function getRouteLegsForWeek(week, type){
+      const mondayTravel = addDays(week.mon, -1);
+      const fridayTravel = week.fri;
+      const mondayBooking = type === "general" ? addDays(mondayTravel, -60) : addDays(week.mon, -2);
+      const fridayBooking = type === "general" ? addDays(fridayTravel, -60) : addDays(week.fri, -1);
+
+      if(routePreference === "dest_to_source_monday"){
+        return [
+          { label: `${routeDestination} → ${routeSource}`, travel: mondayTravel, booking: mondayBooking },
+          { label: `${routeSource} → ${routeDestination}`, travel: fridayTravel, booking: fridayBooking }
+        ];
+      }
+      return [
+        { label: `${routeSource} → ${routeDestination}`, travel: mondayTravel, booking: mondayBooking },
+        { label: `${routeDestination} → ${routeSource}`, travel: fridayTravel, booking: fridayBooking }
+      ];
+    }
     function fmt(d){
       return d.toLocaleDateString("en-IN",{ weekday:"short", day:"2-digit", month:"short" });
     }
@@ -1608,9 +1737,14 @@
     }
     function pickTwoWorkWeeks(year, month){
       const c = getWeekCandidates(year, month);
-      const best = c.filter(x=>!x.holidayInside);
-      if(best.length >= 2) return best.slice(0,2);
-      return [...best, ...c.filter(x=>x.holidayInside)].slice(0,2);
+      const chosen = [];
+      c.filter(x=>!x.holidayInside).forEach(item=>{
+        if(chosen.length < 2 && hasRequiredGap(item.mon, chosen, 14)) chosen.push(item);
+      });
+      c.filter(x=>x.holidayInside).forEach(item=>{
+        if(chosen.length < 2 && hasRequiredGap(item.mon, chosen, 14)) chosen.push(item);
+      });
+      return chosen;
     }
     function evaluateTatkalWeeks(year, month){
       const rows = getWeekCandidates(year, month).map((week, i)=>{
@@ -1633,12 +1767,19 @@
       });
 
       const eligible = rows.filter(r => r.hasFutureBooking);
-      const preferred = eligible.filter(r => !r.week.holidayInside);
-      preferred.slice(0,2).forEach(r => { r.selected = true; });
-      if(preferred.filter(r => r.selected).length < 2){
-        const needed = 2 - preferred.filter(r => r.selected).length;
-        eligible.filter(r => r.week.holidayInside).slice(0, needed).forEach(r => { r.selected = true; });
-      }
+      const selectedWeeks = [];
+      eligible.filter(r => !r.week.holidayInside).forEach(r=>{
+        if(selectedWeeks.length < 2 && hasRequiredGap(r.week.mon, selectedWeeks, 14)){
+          r.selected = true;
+          selectedWeeks.push(r.week);
+        }
+      });
+      eligible.filter(r => r.week.holidayInside).forEach(r=>{
+        if(selectedWeeks.length < 2 && hasRequiredGap(r.week.mon, selectedWeeks, 14)){
+          r.selected = true;
+          selectedWeeks.push(r.week);
+        }
+      });
 
       rows.forEach(r=>{
         if(r.selected) return;
@@ -1651,16 +1792,17 @@
           r.reason = labels.length ? `Ignored: holiday in office week (${labels.join(", ")})` : "Ignored: holiday in office week";
           return;
         }
-        r.reason = "Ignored: only first 2 preferred cycles are suggested";
+        r.reason = "Ignored: consecutive week, preferred at least one-week gap";
       });
       return rows;
     }
     function buildTatkalCycleText(data){
       const week = data.week;
-      const inboundTravel = addDays(week.mon, -1);
-      const inboundBooking = addDays(week.mon, -2);
-      const outboundTravel = week.fri;
-      const outboundBooking = addDays(week.fri, -1);
+      const legs = getRouteLegsForWeek(week, "tatkal");
+      const inboundTravel = legs[0].travel;
+      const inboundBooking = legs[0].booking;
+      const outboundTravel = legs[1].travel;
+      const outboundBooking = legs[1].booking;
       if(!isOnOrAfterToday(inboundBooking) && !isOnOrAfterToday(outboundBooking)) return "";
       const planBooking = isOnOrAfterToday(inboundBooking) ? inboundBooking : outboundBooking;
       const chips = week.holidayInside
@@ -1669,6 +1811,7 @@
       const holidayLabels = weekHolidayLabels(week.mon);
       const holidayLine = holidayLabels.length ? `Holidays: ${holidayLabels.join(", ")}` : "No holidays";
       const holidayChipClass = holidayLabels.length ? "assistant-chip assistant-chip-warn" : "assistant-chip";
+      const holidaySummary = holidaySummaryLine(week);
       const stateChip = data.selected
         ? `<span class="assistant-chip assistant-status-good">Suggested Slot</span>`
         : `<span class="assistant-chip assistant-status-bad">Ignored Slot</span>`;
@@ -1679,41 +1822,46 @@
           <div class="assistant-chip-row">${stateChip}${chips}</div>
           <div>Office week: <b>${fmt(week.mon)}</b> to <b>${fmt(week.fri)}</b> (Mon-Fri)</div>
           <div class="route-box">
-            <div class="assistant-route-head"><span>Madurai → Chennai</span>${data.selected ? `<button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(planBooking)}')">Plan This Cycle</button>` : ""}</div>
+            <div class="assistant-route-head"><span>${legs[0].label}</span>${data.selected ? `<button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(planBooking)}')">Plan This Cycle</button>` : ""}</div>
             <div>Travel: <b>${fmt(inboundTravel)}</b> | Book: <b>${fmt(inboundBooking)}</b></div>
             <div><span class="${holidayChipClass}">${holidayLine}</span></div>
           </div>
-          <div class="route-box"><b>Chennai → Madurai</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book: <b>${fmt(outboundBooking)}</b><br><span class="${holidayChipClass}">${holidayLine}</span></div>
+          <div class="route-box"><b>${legs[1].label}</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book: <b>${fmt(outboundBooking)}</b><br><span class="${holidayChipClass}">${holidayLine}</span></div>
+          ${holidaySummary ? `<div class="assistant-note-bad">${holidaySummary}</div>` : ""}
           ${reasonLine}
         </div>
       `;
     }
     function buildGeneralCycleText(week, idx){
-      const inboundTravel = addDays(week.mon, -1);
-      const outboundTravel = week.fri;
-      const inboundBooking = addDays(inboundTravel, -60);
-      const outboundBooking = addDays(outboundTravel, -60);
+      const legs = getRouteLegsForWeek(week, "general");
+      const inboundTravel = legs[0].travel;
+      const outboundTravel = legs[1].travel;
+      const inboundBooking = legs[0].booking;
+      const outboundBooking = legs[1].booking;
       if(!isOnOrAfterToday(inboundBooking) && !isOnOrAfterToday(outboundBooking)) return "";
       const chips = week.holidayInside
         ? `<span class="assistant-chip">Has holiday in work week</span>`
         : `<span class="assistant-chip">No holiday in work week</span>`;
-      const holidayLine = week.holidayInside ? "Has holiday" : "No holidays";
-      const holidayChipClass = week.holidayInside ? "assistant-chip assistant-chip-warn" : "assistant-chip";
+      const holidayLabels = weekHolidayLabels(week.mon);
+      const holidayLine = holidayLabels.length ? `Holidays: ${holidayLabels.join(", ")}` : "No holidays";
+      const holidayChipClass = holidayLabels.length ? "assistant-chip assistant-chip-warn" : "assistant-chip";
+      const holidaySummary = holidaySummaryLine(week);
       return `
         <div class="assistant-cycle good">
           <div class="font-semibold mb-1">Cycle ${idx} • General (60 Days)</div>
           <div class="assistant-chip-row">${chips}<span class="assistant-chip">Booking opens 08:00 AM</span></div>
           <div>Office week: <b>${fmt(week.mon)}</b> to <b>${fmt(week.fri)}</b> (Mon-Fri)</div>
           <div class="route-box">
-            <div class="assistant-route-head"><span>Madurai → Chennai</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(inboundBooking)}','60')">Plan This Cycle</button></div>
+            <div class="assistant-route-head"><span>${legs[0].label}</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(inboundBooking)}','60')">Plan This Cycle</button></div>
             <div>Travel: <b>${fmt(inboundTravel)}</b> | Book (60D): <b>${fmt(inboundBooking)}</b></div>
             <div><span class="${holidayChipClass}">${holidayLine}</span></div>
           </div>
           <div class="route-box">
-            <div class="assistant-route-head"><span>Chennai → Madurai</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(outboundBooking)}','60')">Plan This Cycle</button></div>
+            <div class="assistant-route-head"><span>${legs[1].label}</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(outboundBooking)}','60')">Plan This Cycle</button></div>
             <div>Travel: <b>${fmt(outboundTravel)}</b> | Book (60D): <b>${fmt(outboundBooking)}</b></div>
             <div><span class="${holidayChipClass}">${holidayLine}</span></div>
           </div>
+          ${holidaySummary ? `<div class="assistant-note-bad">${holidaySummary}</div>` : ""}
         </div>
       `;
     }
@@ -1761,7 +1909,7 @@
       }else if(count < 2){
         html += `<div class="assistant-chip">Only one valid cycle available in this month</div>`;
       }
-      html += `<div class="text-xs mt-1">Rule used: prefer Monday-Friday office weeks without holidays in-between.</div>`;
+      html += `<div class="text-xs mt-1">Rule used: prefer Monday-Friday office weeks, avoid holidays, and keep at least one-week gap between cycles.</div>`;
       body.innerHTML = html;
     }
 
@@ -2424,8 +2572,13 @@ Official: https://www.irctc.co.in`;
 
     document.getElementById("nameSubmitBtn").addEventListener("click", saveUserNameFromPrompt);
     document.getElementById("nameCloseBtn").addEventListener("click", skipUserNameFromPrompt);
+    document.getElementById("routeSubmitBtn").addEventListener("click", saveRouteFromPrompt);
+    document.getElementById("routeCloseBtn").addEventListener("click", skipRouteFromPrompt);
     document.getElementById("nameInput").addEventListener("keydown", (e)=>{
       if(e.key === "Enter") saveUserNameFromPrompt();
+    });
+    document.getElementById("destinationInput").addEventListener("keydown", (e)=>{
+      if(e.key === "Enter") saveRouteFromPrompt();
     });
     window.addEventListener("resize", ()=>{
       if(window.innerWidth >= 1024){
