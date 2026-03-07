@@ -519,6 +519,29 @@
       overflow-x:auto;
     }
     .dark .assistant-note-bad{ color:#fca5a5; }
+    .assistant-details{
+      margin-top:8px;
+      border:1px dashed #fca5a5;
+      border-radius:8px;
+      padding:4px 8px;
+      background:#fff1f2;
+    }
+    .assistant-details summary{
+      cursor:pointer;
+      color:#b91c1c;
+      font-size:.76rem;
+      font-weight:700;
+      outline:none;
+      list-style:none;
+    }
+    .assistant-details summary::-webkit-details-marker{ display:none; }
+    .assistant-details summary::before{ content:"▶ "; }
+    .assistant-details[open] summary::before{ content:"▼ "; }
+    .dark .assistant-details{
+      border-color:#7f1d1d;
+      background:#2a0f13;
+    }
+    .dark .assistant-details summary{ color:#fca5a5; }
     @media (min-width: 1024px){
       .assistant-panel{ width:420px; }
     }
@@ -891,6 +914,16 @@
             class="w-full bg-emerald-600 text-white p-2 rounded-lg text-sm">
             📅 Download ICS (Booking + Travel)
           </button>
+          <div class="flex gap-2">
+            <button onclick="sendManualEmailAlert()"
+              class="flex-1 bg-blue-600 text-white p-2 rounded-lg text-sm">
+              Manual Email Alert
+            </button>
+            <button onclick="sendManualSMSAlert()"
+              class="flex-1 bg-slate-800 text-white p-2 rounded-lg text-sm dark:bg-slate-600">
+              Manual SMS Alert
+            </button>
+          </div>
         </div>
 
         <div class="text-xs text-gray-600 pt-4 flex items-center gap-2 dark:text-slate-300">
@@ -1796,6 +1829,52 @@
       });
       return rows;
     }
+    function evaluateGeneralWeeks(year, month){
+      const rows = getWeekCandidates(year, month).map((week, i)=>{
+        const legs = getRouteLegsForWeek(week, "general");
+        const firstBooking = legs[0].booking;
+        const secondBooking = legs[1].booking;
+        const hasFutureBooking = isOnOrAfterToday(firstBooking) || isOnOrAfterToday(secondBooking);
+        return {
+          idx: i + 1,
+          week,
+          legs,
+          hasFutureBooking,
+          selected: false,
+          reason: ""
+        };
+      });
+
+      const eligible = rows.filter(r => r.hasFutureBooking);
+      const selectedWeeks = [];
+      eligible.filter(r => !r.week.holidayInside).forEach(r=>{
+        if(selectedWeeks.length < 2 && hasRequiredGap(r.week.mon, selectedWeeks, 14)){
+          r.selected = true;
+          selectedWeeks.push(r.week);
+        }
+      });
+      eligible.filter(r => r.week.holidayInside).forEach(r=>{
+        if(selectedWeeks.length < 2 && hasRequiredGap(r.week.mon, selectedWeeks, 14)){
+          r.selected = true;
+          selectedWeeks.push(r.week);
+        }
+      });
+
+      rows.forEach(r=>{
+        if(r.selected) return;
+        if(!r.hasFutureBooking){
+          r.reason = "Ignored: booking dates already passed";
+          return;
+        }
+        if(r.week.holidayInside){
+          const labels = weekHolidayLabels(r.week.mon);
+          r.reason = labels.length ? `Ignored: holiday in office week (${labels.join(", ")})` : "Ignored: holiday in office week";
+          return;
+        }
+        r.reason = "Ignored: consecutive week, preferred at least one-week gap";
+      });
+      return rows;
+    }
     function buildTatkalCycleText(data){
       const week = data.week;
       const legs = getRouteLegsForWeek(week, "tatkal");
@@ -1832,8 +1911,10 @@
         </div>
       `;
     }
-    function buildGeneralCycleText(week, idx){
-      const legs = getRouteLegsForWeek(week, "general");
+    function buildGeneralCycleText(data){
+      const week = data.week;
+      const idx = data.idx;
+      const legs = data.legs || getRouteLegsForWeek(week, "general");
       const inboundTravel = legs[0].travel;
       const outboundTravel = legs[1].travel;
       const inboundBooking = legs[0].booking;
@@ -1846,18 +1927,28 @@
       const holidayLine = holidayLabels.length ? `Holidays: ${holidayLabels.join(", ")}` : "No holidays";
       const holidayChipClass = holidayLabels.length ? "assistant-chip assistant-chip-warn" : "assistant-chip";
       const holidaySummary = holidaySummaryLine(week);
+      const stateChip = data.selected
+        ? `<span class="assistant-chip assistant-status-good">Preferred Slot</span>`
+        : `<span class="assistant-chip assistant-status-bad">Not Preferred</span>`;
+      const maybeDetails = data.selected ? "" : `
+        <details class="assistant-details">
+          <summary>Not Preferred: Tap to view details</summary>
+          <div class="assistant-note-bad">${data.reason || "Not preferred by current rule."}</div>
+        </details>
+      `;
       return `
-        <div class="assistant-cycle good">
+        <div class="assistant-cycle ${data.selected ? "good" : "bad"}">
           <div class="font-semibold mb-1">Cycle ${idx} • General (60 Days)</div>
-          <div class="assistant-chip-row">${chips}<span class="assistant-chip">Booking opens 08:00 AM</span></div>
+          ${maybeDetails}
+          <div class="assistant-chip-row">${stateChip}${chips}<span class="assistant-chip">Booking opens 08:00 AM</span></div>
           <div>Office week: <b>${fmt(week.mon)}</b> to <b>${fmt(week.fri)}</b> (Mon-Fri)</div>
           <div class="route-box">
-            <div class="assistant-route-head"><span>${legs[0].label}</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(inboundBooking)}','60')">Plan This Cycle</button></div>
+            <div class="assistant-route-head"><span>${legs[0].label}</span>${data.selected ? `<button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(inboundBooking)}','60')">Plan This Cycle</button>` : ""}</div>
             <div>Travel: <b>${fmt(inboundTravel)}</b> | Book (60D): <b>${fmt(inboundBooking)}</b></div>
             <div><span class="${holidayChipClass}">${holidayLine}</span></div>
           </div>
           <div class="route-box">
-            <div class="assistant-route-head"><span>${legs[1].label}</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(outboundBooking)}','60')">Plan This Cycle</button></div>
+            <div class="assistant-route-head"><span>${legs[1].label}</span>${data.selected ? `<button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(outboundBooking)}','60')">Plan This Cycle</button>` : ""}</div>
             <div>Travel: <b>${fmt(outboundTravel)}</b> | Book (60D): <b>${fmt(outboundBooking)}</b></div>
             <div><span class="${holidayChipClass}">${holidayLine}</span></div>
           </div>
@@ -1882,7 +1973,7 @@
       const year = targetMonth.getFullYear();
       const month = targetMonth.getMonth();
       const monthLabel = targetMonth.toLocaleDateString("en-IN",{ month:"long", year:"numeric" });
-      const picked = isGeneral ? pickTwoWorkWeeks(year, month) : evaluateTatkalWeeks(year, month);
+      const picked = isGeneral ? evaluateGeneralWeeks(year, month) : evaluateTatkalWeeks(year, month);
       if(picked.length === 0){
         body.innerHTML = `
           <div class="mb-2"><b>${monthLabel}</b>: no valid Mon-Fri office week left in this month.</div>
@@ -1894,12 +1985,10 @@
       let html = `<div class="mb-2"><b>${monthLabel}</b> • <b>${modeLabel}</b> suggestion for 10 office days (2 cycles x 5 days).</div>`;
       let count = 0;
       picked.forEach((w,i)=>{
-        const row = isGeneral ? buildGeneralCycleText(w, i+1) : buildTatkalCycleText(w);
+        const row = isGeneral ? buildGeneralCycleText(w) : buildTatkalCycleText(w);
         if(row){
           html += row;
-          if(isGeneral){
-            count++;
-          }else if(w.selected){
+          if(w.selected){
             count++;
           }
         }
@@ -2238,6 +2327,18 @@ Website: https://www.irctc.co.in`;
     }
     async function shareEmail(){
       await sharePlanWithPDF("email");
+    }
+    function sendManualEmailAlert(){
+      if(!selectedDate) return alert("Select date first");
+      const subject = encodeURIComponent("IRCTC Manual Booking Alert");
+      const body = encodeURIComponent(buildShareMessage());
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    }
+    function sendManualSMSAlert(){
+      if(!selectedDate) return alert("Select date first");
+      const body = encodeURIComponent(buildShareMessage());
+      // Works in most mobile browsers/apps. Desktop may not support sms URI.
+      window.location.href = `sms:?&body=${body}`;
     }
     function buildShareMessage(){
       const bookingStr = document.getElementById("bookingDate").innerText;
