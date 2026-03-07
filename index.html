@@ -203,6 +203,33 @@
       background:#0f172a;
       color:#e2e8f0;
     }
+    .action-choice-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+      margin-top:12px;
+    }
+    .action-choice-btn{
+      border:1px solid #bfdbfe;
+      border-radius:10px;
+      padding:.58rem .5rem;
+      font-size:.82rem;
+      font-weight:700;
+      background:#eff6ff;
+      color:#1e3a8a;
+    }
+    .dark .action-choice-btn{
+      border-color:#334155;
+      background:#0f172a;
+      color:#bfdbfe;
+    }
+    .action-choice-hint{
+      margin-top:8px;
+      font-size:.74rem;
+      color:#475569;
+      line-height:1.2rem;
+    }
+    .dark .action-choice-hint{ color:#94a3b8; }
 
     /* ===== Mobile-only action menu / panel ===== */
     .mobile-only{ display:none; }
@@ -914,16 +941,10 @@
             class="w-full bg-emerald-600 text-white p-2 rounded-lg text-sm">
             📅 Download ICS (Booking + Travel)
           </button>
-          <div class="flex gap-2">
-            <button onclick="sendManualEmailAlert()"
-              class="flex-1 bg-blue-600 text-white p-2 rounded-lg text-sm">
-              Manual Email Alert
-            </button>
-            <button onclick="sendManualSMSAlert()"
-              class="flex-1 bg-slate-800 text-white p-2 rounded-lg text-sm dark:bg-slate-600">
-              Manual SMS Alert
-            </button>
-          </div>
+          <button onclick="openLatestGeneralActionChooser()"
+            class="w-full bg-sky-600 text-white p-2 rounded-lg text-sm font-semibold">
+            Latest Gen
+          </button>
         </div>
 
         <div class="text-xs text-gray-600 pt-4 flex items-center gap-2 dark:text-slate-300">
@@ -1051,6 +1072,22 @@
     </div>
   </div>
 
+  <!-- Latest General 60D Action Modal -->
+  <div id="latestGenModalBackdrop" class="name-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="latestGenTitle" onclick="if(event.target===this) closeLatestGeneralActionChooser()">
+    <div class="name-modal">
+      <button class="name-close" type="button" aria-label="Close" onclick="closeLatestGeneralActionChooser()">×</button>
+      <div id="latestGenTitle" class="name-title">Latest Gen Action</div>
+      <div class="name-sub">Generate latest General 60D plan and choose where to send it.</div>
+      <div id="latestGenMonthLabel" class="name-sub" style="margin-top:8px;"></div>
+      <div class="action-choice-grid">
+        <button type="button" class="action-choice-btn" onclick="runLatestGeneralAction('whatsapp')">WhatsApp</button>
+        <button type="button" class="action-choice-btn" onclick="runLatestGeneralAction('email')">Email</button>
+        <button type="button" class="action-choice-btn" onclick="runLatestGeneralAction('pdf')">PDF</button>
+      </div>
+      <div class="action-choice-hint">For WhatsApp/Email, file auto-attach works in supported share environments. Fallback opens app/text and downloads the PDF for manual attach.</div>
+    </div>
+  </div>
+
   <!-- ================= JAVASCRIPT ================= -->
   <script>
     let currentDate = new Date();
@@ -1078,6 +1115,7 @@
     let assistantGeneralSlot = 0;
     let assistantInitialized = false;
     let assistantExpanded = false;
+    let latestGeneralActionBundle = null;
 
     // Holidays TN - sample (2026). Replace/import per year.
     let tnHolidays = [
@@ -2018,6 +2056,198 @@
       html += `<div class="text-xs mt-1">Rule used: prefer Monday-Friday office weeks, avoid holidays, and keep at least one-week gap between cycles.</div>`;
       body.innerHTML = html;
     }
+    function getLatestGeneralBundle(){
+      for(let slot = 0; slot < 6; slot++){
+        const targetMonth = getGeneralTravelMonthBySlot(slot);
+        const year = targetMonth.getFullYear();
+        const month = targetMonth.getMonth();
+        const rows = evaluateGeneralWeeks(year, month).filter(r => r.hasFutureBooking);
+        if(rows.length){
+          return {
+            slot,
+            targetMonth,
+            monthLabel: targetMonth.toLocaleDateString("en-IN", { month:"long", year:"numeric" }),
+            rows
+          };
+        }
+      }
+      return null;
+    }
+    function openLatestGeneralActionChooser(){
+      if(!requireUserName(openLatestGeneralActionChooser)) return;
+      const bundle = getLatestGeneralBundle();
+      if(!bundle) return alert("No latest General 60D month available in next 6 slots.");
+      latestGeneralActionBundle = bundle;
+      const label = document.getElementById("latestGenMonthLabel");
+      if(label) label.textContent = `Month: ${bundle.monthLabel} (slot ${bundle.slot + 1}/6)`;
+      const backdrop = document.getElementById("latestGenModalBackdrop");
+      if(backdrop) backdrop.classList.add("show");
+    }
+    function closeLatestGeneralActionChooser(){
+      const backdrop = document.getElementById("latestGenModalBackdrop");
+      if(backdrop) backdrop.classList.remove("show");
+    }
+    function downloadBlobAsFile(blob, fileName){
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName;
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+    }
+    function getLegStatusChip(selected){
+      return selected ? "Preferred Slot" : "Not Preferred";
+    }
+    function buildLatestGeneralShareMessage(bundle){
+      const lines = [
+        `IRCTC General 60D Plan (${bundle.monthLabel})`,
+        `Route: ${routeSource} <-> ${routeDestination}`,
+        "Booking opens: 08:00 AM",
+        ""
+      ];
+      bundle.rows.forEach((row, idx)=>{
+        const cycleNo = idx + 1;
+        const legs = row.legs || getRouteLegsForWeek(row.week, "general");
+        lines.push(`Cycle ${cycleNo} - ${getLegStatusChip(row.selected)}`);
+        lines.push(`Office week: ${fmt(row.week.mon)} to ${fmt(row.week.fri)}`);
+        legs.forEach((leg)=>{
+          lines.push(`${leg.label}: Travel ${fmt(leg.travel)} | Book ${fmt(leg.booking)}`);
+          lines.push(`Calendar: ${buildGoogleCalendarLink({ type:"booking", travelDate:leg.travel, bookingDate:leg.booking })}`);
+        });
+        if(row.reason) lines.push(row.reason);
+        lines.push("");
+      });
+      lines.push("Official: https://www.irctc.co.in");
+      return lines.join("\n");
+    }
+    function createLatestGeneralPDFBlob(bundle){
+      if(!bundle) return null;
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const textColor = [15,23,42];
+
+      let y = 18;
+      doc.setFillColor(14,116,144);
+      doc.rect(0,0,210,26,"F");
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(15);
+      doc.text("IRCTC General 60D - Latest Month Summary", 14, 12);
+      doc.setFontSize(10);
+      doc.text(`${bundle.monthLabel} | Booking opens 08:00 AM`, 14, 19);
+      if(currentUserName){
+        doc.text(`Prepared for: ${currentUserName}`, 145, 19);
+      }
+      y = 34;
+
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.setFontSize(11);
+      doc.text(`Route setup: ${routeSource} -> ${routeDestination} and return`, 14, y); y += 6;
+      doc.text("Rule: Prefer Monday-Friday office weeks, avoid holidays, keep one-week gap.", 14, y); y += 8;
+
+      const ensureSpace = (needed)=>{
+        if(y + needed > pageHeight - 16){
+          doc.addPage();
+          y = 16;
+        }
+      };
+
+      bundle.rows.forEach((row, idx)=>{
+        const legs = row.legs || getRouteLegsForWeek(row.week, "general");
+        const holidayLine = holidaySummaryLine(row.week) || "No holidays in office week.";
+        const statusText = row.selected ? "Preferred Slot" : "Not Preferred";
+        const statusBg = row.selected ? [220,252,231] : [254,226,226];
+        const statusBorder = row.selected ? [34,197,94] : [239,68,68];
+        const detailBg = row.selected ? [240,253,244] : [255,241,242];
+
+        ensureSpace(58);
+        doc.setFillColor(statusBg[0], statusBg[1], statusBg[2]);
+        doc.setDrawColor(statusBorder[0], statusBorder[1], statusBorder[2]);
+        doc.roundedRect(12, y-4, 186, 52, 3, 3, "FD");
+        doc.setTextColor(17,24,39);
+        doc.setFontSize(11);
+        doc.text(`Cycle ${idx + 1} - ${statusText}`, 16, y+2);
+        doc.setFontSize(10);
+        doc.text(`Office week: ${fmt(row.week.mon)} to ${fmt(row.week.fri)} (Mon-Fri)`, 16, y+8);
+        doc.setTextColor(row.week.holidayInside ? 153 : 22, row.week.holidayInside ? 27 : 101, row.week.holidayInside ? 27 : 52);
+        doc.text(holidayLine, 16, y+14, { maxWidth: 178 });
+        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+
+        let lineY = y + 21;
+        legs.forEach((leg)=>{
+          const calUrl = buildGoogleCalendarLink({ type:"booking", travelDate:leg.travel, bookingDate:leg.booking });
+          doc.setFillColor(detailBg[0], detailBg[1], detailBg[2]);
+          doc.setDrawColor(191,219,254);
+          doc.roundedRect(16, lineY-3, 178, 13, 2, 2, "FD");
+          doc.setFontSize(9.5);
+          doc.text(`${leg.label} | Travel: ${fmt(leg.travel)} | Book(60D): ${fmt(leg.booking)}`, 19, lineY+2, { maxWidth: 128 });
+          doc.setTextColor(29,78,216);
+          doc.textWithLink("Add to Google Calendar", 149, lineY+2, { url: calUrl });
+          doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+          lineY += 16;
+        });
+        if(row.reason){
+          ensureSpace(8);
+          doc.setTextColor(185,28,28);
+          doc.setFontSize(9);
+          doc.text(`Why not preferred: ${row.reason}`, 16, y + 50, { maxWidth: 178 });
+          doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+        }
+        y += 58;
+      });
+
+      ensureSpace(16);
+      doc.setFontSize(10);
+      doc.setDrawColor(226,232,240);
+      doc.line(14, y, 196, y);
+      y += 7;
+      doc.text("Official website: https://www.irctc.co.in", 14, y);
+      y += 5;
+      doc.text("Generated by IRCTC Booking Planner", 14, y);
+      return doc.output("blob");
+    }
+    async function runLatestGeneralAction(type){
+      const bundle = latestGeneralActionBundle || getLatestGeneralBundle();
+      if(!bundle) return alert("No latest General 60D month available in next 6 slots.");
+      closeLatestGeneralActionChooser();
+      const pdfBlob = createLatestGeneralPDFBlob(bundle);
+      if(!pdfBlob) return alert("Unable to generate Latest Gen PDF.");
+      const fileName = `IRCTC_Latest_General60_${bundle.targetMonth.getFullYear()}_${String(bundle.targetMonth.getMonth()+1).padStart(2,"0")}.pdf`;
+      const message = buildLatestGeneralShareMessage(bundle);
+
+      if(type === "pdf"){
+        downloadBlobAsFile(pdfBlob, fileName);
+        return;
+      }
+
+      const canShareFiles = !!(navigator.share && navigator.canShare);
+      if(canShareFiles){
+        const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+        if(navigator.canShare({ files:[file] })){
+          try{
+            await navigator.share({
+              title: `IRCTC Latest General 60D - ${bundle.monthLabel}`,
+              text: message,
+              files: [file]
+            });
+            return;
+          }catch(err){
+            if(err && err.name === "AbortError") return;
+          }
+        }
+      }
+
+      downloadBlobAsFile(pdfBlob, fileName);
+      if(type === "whatsapp"){
+        const url = "https://wa.me/?text=" + encodeURIComponent(message);
+        window.open(url, "_blank");
+        alert("Opened WhatsApp text and downloaded PDF. Attach the PDF manually if auto-share is unavailable.");
+      }else{
+        const subject = encodeURIComponent(`IRCTC Latest General 60D - ${bundle.monthLabel}`);
+        const body = encodeURIComponent(message);
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+        alert("Opened Email draft and downloaded PDF. Attach the PDF manually if auto-share is unavailable.");
+      }
+    }
 
     function loadSavedTable(){
       const body = document.getElementById("savedTableBody");
@@ -2344,18 +2574,6 @@ Website: https://www.irctc.co.in`;
     }
     async function shareEmail(){
       await sharePlanWithPDF("email");
-    }
-    function sendManualEmailAlert(){
-      if(!selectedDate) return alert("Select date first");
-      const subject = encodeURIComponent("IRCTC Manual Booking Alert");
-      const body = encodeURIComponent(buildShareMessage());
-      window.location.href = `mailto:?subject=${subject}&body=${body}`;
-    }
-    function sendManualSMSAlert(){
-      if(!selectedDate) return alert("Select date first");
-      const body = encodeURIComponent(buildShareMessage());
-      // Works in most mobile browsers/apps. Desktop may not support sms URI.
-      window.location.href = `sms:?&body=${body}`;
     }
     function buildShareMessage(){
       const bookingStr = document.getElementById("bookingDate").innerText;
@@ -2721,6 +2939,7 @@ Official: https://www.irctc.co.in`;
       if(e.key === "Escape"){
         closeMobileActionPanel();
         toggleAssistantPanel(false);
+        closeLatestGeneralActionChooser();
       }
     });
     document.addEventListener("click", (e)=>{
