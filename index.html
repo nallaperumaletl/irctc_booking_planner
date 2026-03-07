@@ -1895,19 +1895,32 @@
         ? `<span class="assistant-chip assistant-status-good">Suggested Slot</span>`
         : `<span class="assistant-chip assistant-status-bad">Ignored Slot</span>`;
       const reasonLine = data.selected ? "" : `<div class="assistant-note-bad">${data.reason}</div>`;
+      const detailedBlock = `
+        <div class="route-box">
+          <div class="assistant-route-head"><span>${legs[0].label}</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(inboundBooking)}')">Plan This Cycle</button></div>
+          <div>Travel: <b>${fmt(inboundTravel)}</b> | Book: <b>${fmt(inboundBooking)}</b></div>
+          <div><span class="${holidayChipClass}">${holidayLine}</span></div>
+        </div>
+        <div class="route-box">
+          <div class="assistant-route-head"><span>${legs[1].label}</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(outboundBooking)}')">Plan This Cycle</button></div>
+          <div>Travel: <b>${fmt(outboundTravel)}</b> | Book: <b>${fmt(outboundBooking)}</b></div>
+          <div><span class="${holidayChipClass}">${holidayLine}</span></div>
+        </div>
+        ${holidaySummary ? `<div class="assistant-note-bad">${holidaySummary}</div>` : ""}
+        ${reasonLine}
+      `;
+      const collapsedBlock = `
+        <details class="assistant-details">
+          <summary>Not Preferred: Tap to view cycle details</summary>
+          ${detailedBlock}
+        </details>
+      `;
       return `
         <div class="assistant-cycle ${data.selected ? "good" : "bad"}">
           <div class="font-semibold mb-1">Cycle ${data.idx} • Tatkal</div>
-          <div class="assistant-chip-row">${stateChip}${chips}</div>
+          ${data.selected ? `<div class="assistant-chip-row">${stateChip}${chips}</div>` : ""}
           <div>Office week: <b>${fmt(week.mon)}</b> to <b>${fmt(week.fri)}</b> (Mon-Fri)</div>
-          <div class="route-box">
-            <div class="assistant-route-head"><span>${legs[0].label}</span>${data.selected ? `<button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(planBooking)}')">Plan This Cycle</button>` : ""}</div>
-            <div>Travel: <b>${fmt(inboundTravel)}</b> | Book: <b>${fmt(inboundBooking)}</b></div>
-            <div><span class="${holidayChipClass}">${holidayLine}</span></div>
-          </div>
-          <div class="route-box"><b>${legs[1].label}</b><br>Travel: <b>${fmt(outboundTravel)}</b> | Book: <b>${fmt(outboundBooking)}</b><br><span class="${holidayChipClass}">${holidayLine}</span></div>
-          ${holidaySummary ? `<div class="assistant-note-bad">${holidaySummary}</div>` : ""}
-          ${reasonLine}
+          ${data.selected ? detailedBlock : collapsedBlock}
         </div>
       `;
     }
@@ -1930,29 +1943,33 @@
       const stateChip = data.selected
         ? `<span class="assistant-chip assistant-status-good">Preferred Slot</span>`
         : `<span class="assistant-chip assistant-status-bad">Not Preferred</span>`;
-      const maybeDetails = data.selected ? "" : `
+      const reasonLine = data.selected ? "" : `<div class="assistant-note-bad">${data.reason || "Not preferred by current rule."}</div>`;
+      const detailedBlock = `
+        <div class="route-box">
+          <div class="assistant-route-head"><span>${legs[0].label}</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(inboundBooking)}','60')">Plan This Cycle</button></div>
+          <div>Travel: <b>${fmt(inboundTravel)}</b> | Book (60D): <b>${fmt(inboundBooking)}</b></div>
+          <div><span class="${holidayChipClass}">${holidayLine}</span></div>
+        </div>
+        <div class="route-box">
+          <div class="assistant-route-head"><span>${legs[1].label}</span><button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(outboundBooking)}','60')">Plan This Cycle</button></div>
+          <div>Travel: <b>${fmt(outboundTravel)}</b> | Book (60D): <b>${fmt(outboundBooking)}</b></div>
+          <div><span class="${holidayChipClass}">${holidayLine}</span></div>
+        </div>
+        ${holidaySummary ? `<div class="assistant-note-bad">${holidaySummary}</div>` : ""}
+        ${reasonLine}
+      `;
+      const collapsedBlock = `
         <details class="assistant-details">
-          <summary>Not Preferred: Tap to view details</summary>
-          <div class="assistant-note-bad">${data.reason || "Not preferred by current rule."}</div>
+          <summary>Not Preferred: Tap to view cycle details</summary>
+          ${detailedBlock}
         </details>
       `;
       return `
         <div class="assistant-cycle ${data.selected ? "good" : "bad"}">
           <div class="font-semibold mb-1">Cycle ${idx} • General (60 Days)</div>
-          ${maybeDetails}
-          <div class="assistant-chip-row">${stateChip}${chips}<span class="assistant-chip">Booking opens 08:00 AM</span></div>
+          ${data.selected ? `<div class="assistant-chip-row">${stateChip}${chips}<span class="assistant-chip">Booking opens 08:00 AM</span></div>` : ""}
           <div>Office week: <b>${fmt(week.mon)}</b> to <b>${fmt(week.fri)}</b> (Mon-Fri)</div>
-          <div class="route-box">
-            <div class="assistant-route-head"><span>${legs[0].label}</span>${data.selected ? `<button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(inboundBooking)}','60')">Plan This Cycle</button>` : ""}</div>
-            <div>Travel: <b>${fmt(inboundTravel)}</b> | Book (60D): <b>${fmt(inboundBooking)}</b></div>
-            <div><span class="${holidayChipClass}">${holidayLine}</span></div>
-          </div>
-          <div class="route-box">
-            <div class="assistant-route-head"><span>${legs[1].label}</span>${data.selected ? `<button class="assistant-plan-btn-inline" onclick="applySuggestedPlan('${isoDate(outboundBooking)}','60')">Plan This Cycle</button>` : ""}</div>
-            <div>Travel: <b>${fmt(outboundTravel)}</b> | Book (60D): <b>${fmt(outboundBooking)}</b></div>
-            <div><span class="${holidayChipClass}">${holidayLine}</span></div>
-          </div>
-          ${holidaySummary ? `<div class="assistant-note-bad">${holidaySummary}</div>` : ""}
+          ${data.selected ? detailedBlock : collapsedBlock}
         </div>
       `;
     }
