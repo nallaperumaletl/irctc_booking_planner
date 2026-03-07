@@ -2119,6 +2119,99 @@
       lines.push("Official: https://www.irctc.co.in");
       return lines.join("\n");
     }
+    function collectLatestGeneralPdfHighlights(bundle){
+      const travelDays = new Set();
+      const bookingDays = new Set();
+      const officeDays = new Set();
+      const holidayDays = new Set();
+
+      bundle.rows.forEach((row)=>{
+        for(let i=0;i<5;i++){
+          officeDays.add(isoDate(addDays(row.week.mon, i)));
+        }
+        const labels = weekHolidayLabels(row.week.mon);
+        if(labels.length){
+          for(let i=0;i<5;i++){
+            const d = addDays(row.week.mon, i);
+            if(isHoliday(d)) holidayDays.add(isoDate(d));
+          }
+        }
+        const legs = row.legs || getRouteLegsForWeek(row.week, "general");
+        legs.forEach((leg)=>{
+          travelDays.add(isoDate(leg.travel));
+          bookingDays.add(isoDate(leg.booking));
+        });
+      });
+      return { travelDays, bookingDays, officeDays, holidayDays };
+    }
+    function drawMiniMonthCalendar(doc, {
+      year, month, title, x, y, size = 5.2,
+      travelDays = new Set(), bookingDays = new Set(), officeDays = new Set(), holidayDays = new Set()
+    }){
+      const wdays = ["M","T","W","T","F","S","S"];
+      const monthLabel = new Date(year, month, 1).toLocaleDateString("en-IN", { month:"short", year:"numeric" });
+      const headH = 6;
+      const dayH = 5.3;
+      const calW = size * 7;
+      const calH = headH + dayH * 7;
+
+      doc.setDrawColor(148,163,184);
+      doc.setFillColor(248,250,252);
+      doc.roundedRect(x, y, calW, calH, 1.5, 1.5, "FD");
+      doc.setTextColor(15,23,42);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.2);
+      doc.text(`${title}: ${monthLabel}`, x + 1.5, y + 3.9);
+
+      let cursorY = y + headH;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.2);
+      wdays.forEach((d, i)=>{
+        doc.text(d, x + (i * size) + 1.9, cursorY + 3.2);
+      });
+      cursorY += dayH;
+
+      const first = new Date(year, month, 1);
+      const firstMondayIdx = (first.getDay() + 6) % 7;
+      const totalDays = new Date(year, month + 1, 0).getDate();
+      let col = 0;
+      let row = 0;
+      const drawCell = (cellX, cellY, dayNo)=>{
+        const key = isoDate(new Date(year, month, dayNo));
+        let fill = [255,255,255];
+        let text = [15,23,42];
+        if(officeDays.has(key)) fill = [254,249,195];
+        if(bookingDays.has(key)) fill = [220,252,231];
+        if(travelDays.has(key)) fill = [219,234,254];
+        if(holidayDays.has(key)){
+          fill = [254,226,226];
+          text = [153,27,27];
+        }
+        doc.setFillColor(fill[0], fill[1], fill[2]);
+        doc.setDrawColor(226,232,240);
+        doc.rect(cellX, cellY, size, dayH, "FD");
+        doc.setTextColor(text[0], text[1], text[2]);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.1);
+        doc.text(String(dayNo), cellX + 1.5, cellY + 3.7);
+      };
+
+      for(let i=0; i<firstMondayIdx; i++){
+        const cellX = x + (col * size);
+        const cellY = cursorY + (row * dayH);
+        doc.setDrawColor(241,245,249);
+        doc.rect(cellX, cellY, size, dayH);
+        col++;
+      }
+      for(let day=1; day<=totalDays; day++){
+        if(col >= 7){ col = 0; row++; }
+        const cellX = x + (col * size);
+        const cellY = cursorY + (row * dayH);
+        drawCell(cellX, cellY, day);
+        col++;
+      }
+      return calH;
+    }
     function createLatestGeneralPDFBlob(bundle){
       if(!bundle) return null;
       const { jsPDF } = window.jspdf;
@@ -2152,6 +2245,54 @@
       doc.text("Rule: Monday-Friday office weeks, avoid holidays, at least one-week gap between cycles.", marginX, y, { maxWidth: blockW });
       y += 8;
 
+      const allLegs = bundle.rows.flatMap(row => row.legs || getRouteLegsForWeek(row.week, "general"));
+      const bookingBase = allLegs.length ? allLegs[0].booking : new Date(bundle.targetMonth.getFullYear(), bundle.targetMonth.getMonth(), 1);
+      const bookingMonthStart = new Date(bookingBase.getFullYear(), bookingBase.getMonth(), 1);
+      const marks = collectLatestGeneralPdfHighlights(bundle);
+      const calTopY = y;
+      const cal1H = drawMiniMonthCalendar(doc, {
+        year: bundle.targetMonth.getFullYear(),
+        month: bundle.targetMonth.getMonth(),
+        title: "Travel Month",
+        x: marginX,
+        y: calTopY,
+        size: 5.2,
+        travelDays: marks.travelDays,
+        bookingDays: marks.bookingDays,
+        officeDays: marks.officeDays,
+        holidayDays: marks.holidayDays
+      });
+      const cal2H = drawMiniMonthCalendar(doc, {
+        year: bookingMonthStart.getFullYear(),
+        month: bookingMonthStart.getMonth(),
+        title: "Booking Month",
+        x: marginX + 45,
+        y: calTopY,
+        size: 5.2,
+        travelDays: marks.travelDays,
+        bookingDays: marks.bookingDays,
+        officeDays: marks.officeDays,
+        holidayDays: marks.holidayDays
+      });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(22,101,52);
+      doc.text("Booking date", marginX + 92, calTopY + 6);
+      doc.setFillColor(220,252,231); doc.rect(marginX + 84, calTopY + 3.3, 6, 3.3, "F");
+      doc.setTextColor(30,64,175);
+      doc.text("Travel date", marginX + 92, calTopY + 12);
+      doc.setFillColor(219,234,254); doc.rect(marginX + 84, calTopY + 9.3, 6, 3.3, "F");
+      doc.setTextColor(120,53,15);
+      doc.text("Office week day", marginX + 92, calTopY + 18);
+      doc.setFillColor(254,249,195); doc.rect(marginX + 84, calTopY + 15.3, 6, 3.3, "F");
+      doc.setTextColor(153,27,27);
+      doc.text("Holiday", marginX + 92, calTopY + 24);
+      doc.setFillColor(254,226,226); doc.rect(marginX + 84, calTopY + 21.3, 6, 3.3, "F");
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+
+      y += Math.max(cal1H, cal2H) + 5;
+
       const ensureSpace = (needed)=>{
         if(y + needed > pageHeight - 18){
           doc.addPage();
@@ -2176,9 +2317,9 @@
 
         let bodyHeight = 18 + (officeLines.length * 5) + (holidayLines.length * 5) + 4;
         legs.forEach((leg)=>{
-          const schedule = `Travel: ${fmt(leg.travel)} | Book(60D): ${fmt(leg.booking)}`;
+          const schedule = "Tap the calendar link below to add this leg.";
           const scheduleLines = doc.splitTextToSize(schedule, blockW - 12);
-          bodyHeight += 8 + (scheduleLines.length * 4) + 7;
+          bodyHeight += 14 + (scheduleLines.length * 4) + 7;
         });
         if(reasonLines.length) bodyHeight += (reasonLines.length * 4) + 5;
         bodyHeight += 4;
@@ -2211,8 +2352,7 @@
 
         legs.forEach((leg)=>{
           const calUrl = buildGoogleCalendarLink({ type:"booking", travelDate:leg.travel, bookingDate:leg.booking });
-          const schedule = `Travel: ${fmt(leg.travel)} | Book(60D): ${fmt(leg.booking)}`;
-          const scheduleLines = doc.splitTextToSize(schedule, blockW - 12);
+          const scheduleLines = doc.splitTextToSize("Tap the calendar link below to add this leg.", blockW - 12);
 
           doc.setDrawColor(191,219,254);
           doc.setFillColor(255,255,255);
@@ -2220,12 +2360,25 @@
           doc.setTextColor(30,64,175);
           doc.setFont("helvetica", "bold");
           doc.setFontSize(9.5);
-          doc.text(leg.label, marginX + 3, lineY + 2);
+          doc.text(String(leg.label || "").replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " "), marginX + 3, lineY + 2);
+
+          doc.setFillColor(219,234,254);
+          doc.roundedRect(marginX + 3, lineY + 3.2, 45, 5.5, 1.4, 1.4, "F");
+          doc.setTextColor(30,64,175);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.text(`Travel: ${fmt(leg.travel)}`, marginX + 4.5, lineY + 7.1);
+
+          doc.setFillColor(220,252,231);
+          doc.roundedRect(marginX + 50, lineY + 3.2, 56, 5.5, 1.4, 1.4, "F");
+          doc.setTextColor(22,101,52);
+          doc.text(`Book(60D): ${fmt(leg.booking)}`, marginX + 51.5, lineY + 7.1);
+
           doc.setTextColor(15,23,42);
           doc.setFont("helvetica", "normal");
           doc.setFontSize(9.2);
-          doc.text(scheduleLines, marginX + 3, lineY + 6);
-          lineY += 6 + (scheduleLines.length * 4);
+          doc.text(scheduleLines, marginX + 3, lineY + 12.3);
+          lineY += 12 + (scheduleLines.length * 4);
           doc.setTextColor(29,78,216);
           doc.textWithLink("Add to Google Calendar", marginX + 3, lineY + 3, { url: calUrl });
           lineY += 9;
