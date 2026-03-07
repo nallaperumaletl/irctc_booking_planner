@@ -2124,85 +2124,132 @@
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       const pageHeight = doc.internal.pageSize.getHeight();
+      const marginX = 14;
+      const blockW = 182;
       const textColor = [15,23,42];
+      const nowLabel = new Date().toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
+      let y = 30;
 
-      let y = 18;
-      doc.setFillColor(14,116,144);
-      doc.rect(0,0,210,26,"F");
+      doc.setFillColor(15,118,110);
+      doc.rect(0,0,210,28,"F");
       doc.setTextColor(255,255,255);
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(15);
-      doc.text("IRCTC General 60D - Latest Month Summary", 14, 12);
+      doc.text("IRCTC General 60D - Latest Month Plan", marginX, 12);
+      doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
-      doc.text(`${bundle.monthLabel} | Booking opens 08:00 AM`, 14, 19);
+      doc.text(`${bundle.monthLabel} | Booking opens at 08:00 AM`, marginX, 19);
+      doc.text(`Generated on ${nowLabel}`, 145, 19);
       if(currentUserName){
-        doc.text(`Prepared for: ${currentUserName}`, 145, 19);
+        doc.text(`Prepared for ${currentUserName}`, marginX, 24);
       }
-      y = 34;
 
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.setFontSize(11);
-      doc.text(`Route setup: ${routeSource} -> ${routeDestination} and return`, 14, y); y += 6;
-      doc.text("Rule: Prefer Monday-Friday office weeks, avoid holidays, keep one-week gap.", 14, y); y += 8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10.5);
+      doc.text(`Route: ${routeSource} -> ${routeDestination} and return`, marginX, y);
+      y += 6;
+      doc.text("Rule: Monday-Friday office weeks, avoid holidays, at least one-week gap between cycles.", marginX, y, { maxWidth: blockW });
+      y += 8;
 
       const ensureSpace = (needed)=>{
-        if(y + needed > pageHeight - 16){
+        if(y + needed > pageHeight - 18){
           doc.addPage();
-          y = 16;
+          y = 18;
         }
       };
 
       bundle.rows.forEach((row, idx)=>{
         const legs = row.legs || getRouteLegsForWeek(row.week, "general");
-        const holidayLine = holidaySummaryLine(row.week) || "No holidays in office week.";
-        const statusText = row.selected ? "Preferred Slot" : "Not Preferred";
-        const statusBg = row.selected ? [220,252,231] : [254,226,226];
-        const statusBorder = row.selected ? [34,197,94] : [239,68,68];
-        const detailBg = row.selected ? [240,253,244] : [255,241,242];
+        const holidayText = holidaySummaryLine(row.week) || "No holidays in office week.";
+        const statusText = row.selected ? "Preferred Slot" : "Not Preferred Slot";
+        const cardBg = row.selected ? [236,253,245] : [255,241,242];
+        const cardBorder = row.selected ? [22,163,74] : [220,38,38];
+        const badgeBg = row.selected ? [22,163,74] : [220,38,38];
+        const holidayColor = row.week.holidayInside ? [153,27,27] : [21,128,61];
 
-        ensureSpace(58);
-        doc.setFillColor(statusBg[0], statusBg[1], statusBg[2]);
-        doc.setDrawColor(statusBorder[0], statusBorder[1], statusBorder[2]);
-        doc.roundedRect(12, y-4, 186, 52, 3, 3, "FD");
+        const officeLine = `Office week: ${fmt(row.week.mon)} to ${fmt(row.week.fri)} (Mon-Fri)`;
+        const officeLines = doc.splitTextToSize(officeLine, blockW - 6);
+        const holidayLines = doc.splitTextToSize(holidayText, blockW - 6);
+        const reasonText = row.reason ? `Reason: ${row.reason}` : "";
+        const reasonLines = reasonText ? doc.splitTextToSize(reasonText, blockW - 6) : [];
+
+        let bodyHeight = 18 + (officeLines.length * 5) + (holidayLines.length * 5) + 4;
+        legs.forEach((leg)=>{
+          const schedule = `Travel: ${fmt(leg.travel)} | Book(60D): ${fmt(leg.booking)}`;
+          const scheduleLines = doc.splitTextToSize(schedule, blockW - 12);
+          bodyHeight += 8 + (scheduleLines.length * 4) + 7;
+        });
+        if(reasonLines.length) bodyHeight += (reasonLines.length * 4) + 5;
+        bodyHeight += 4;
+
+        ensureSpace(bodyHeight + 4);
+        doc.setFillColor(cardBg[0], cardBg[1], cardBg[2]);
+        doc.setDrawColor(cardBorder[0], cardBorder[1], cardBorder[2]);
+        doc.roundedRect(marginX - 2, y - 4, blockW + 4, bodyHeight, 3, 3, "FD");
+
+        doc.setFillColor(badgeBg[0], badgeBg[1], badgeBg[2]);
+        doc.roundedRect(marginX + 128, y - 1, 50, 7, 2, 2, "F");
+        doc.setTextColor(255,255,255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.text(statusText, marginX + 153, y + 3.8, { align:"center" });
+
         doc.setTextColor(17,24,39);
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
-        doc.text(`Cycle ${idx + 1} - ${statusText}`, 16, y+2);
-        doc.setFontSize(10);
-        doc.text(`Office week: ${fmt(row.week.mon)} to ${fmt(row.week.fri)} (Mon-Fri)`, 16, y+8);
-        doc.setTextColor(row.week.holidayInside ? 153 : 22, row.week.holidayInside ? 27 : 101, row.week.holidayInside ? 27 : 52);
-        doc.text(holidayLine, 16, y+14, { maxWidth: 178 });
-        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+        doc.text(`Cycle ${idx + 1}`, marginX, y + 3.5);
 
-        let lineY = y + 21;
+        let lineY = y + 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text(officeLines, marginX, lineY);
+        lineY += officeLines.length * 5;
+        doc.setTextColor(holidayColor[0], holidayColor[1], holidayColor[2]);
+        doc.text(holidayLines, marginX, lineY);
+        lineY += holidayLines.length * 5 + 1;
+
         legs.forEach((leg)=>{
           const calUrl = buildGoogleCalendarLink({ type:"booking", travelDate:leg.travel, bookingDate:leg.booking });
-          doc.setFillColor(detailBg[0], detailBg[1], detailBg[2]);
+          const schedule = `Travel: ${fmt(leg.travel)} | Book(60D): ${fmt(leg.booking)}`;
+          const scheduleLines = doc.splitTextToSize(schedule, blockW - 12);
+
           doc.setDrawColor(191,219,254);
-          doc.roundedRect(16, lineY-3, 178, 13, 2, 2, "FD");
+          doc.setFillColor(255,255,255);
+          doc.roundedRect(marginX, lineY - 2, blockW - 2, 8 + (scheduleLines.length * 4) + 5, 2, 2, "FD");
+          doc.setTextColor(30,64,175);
+          doc.setFont("helvetica", "bold");
           doc.setFontSize(9.5);
-          doc.text(`${leg.label} | Travel: ${fmt(leg.travel)} | Book(60D): ${fmt(leg.booking)}`, 19, lineY+2, { maxWidth: 128 });
+          doc.text(leg.label, marginX + 3, lineY + 2);
+          doc.setTextColor(15,23,42);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9.2);
+          doc.text(scheduleLines, marginX + 3, lineY + 6);
+          lineY += 6 + (scheduleLines.length * 4);
           doc.setTextColor(29,78,216);
-          doc.textWithLink("Add to Google Calendar", 149, lineY+2, { url: calUrl });
-          doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-          lineY += 16;
+          doc.textWithLink("Add to Google Calendar", marginX + 3, lineY + 3, { url: calUrl });
+          lineY += 9;
         });
-        if(row.reason){
-          ensureSpace(8);
+
+        if(reasonLines.length){
           doc.setTextColor(185,28,28);
-          doc.setFontSize(9);
-          doc.text(`Why not preferred: ${row.reason}`, 16, y + 50, { maxWidth: 178 });
-          doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(8.8);
+          doc.text(reasonLines, marginX, lineY + 1);
         }
-        y += 58;
+        y += bodyHeight + 5;
       });
 
-      ensureSpace(16);
-      doc.setFontSize(10);
-      doc.setDrawColor(226,232,240);
-      doc.line(14, y, 196, y);
+      ensureSpace(15);
+      doc.setDrawColor(203,213,225);
+      doc.line(marginX, y, marginX + blockW, y);
       y += 7;
-      doc.text("Official website: https://www.irctc.co.in", 14, y);
+      doc.setTextColor(30,41,59);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.text("Official website: https://www.irctc.co.in", marginX, y);
       y += 5;
-      doc.text("Generated by IRCTC Booking Planner", 14, y);
+      doc.text("Generated by IRCTC Booking Planner", marginX, y);
       return doc.output("blob");
     }
     async function runLatestGeneralAction(type){
