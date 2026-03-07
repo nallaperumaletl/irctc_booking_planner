@@ -288,6 +288,25 @@
         font-size:.74rem;
         line-height:1.05rem;
       }
+      .latest-gen-mobile-btn{
+        width:100%;
+        padding:.58rem .8rem;
+        border-radius:12px;
+        border:1px solid #0ea5e9;
+        background:linear-gradient(135deg,#0ea5e9,#2563eb);
+        color:#ffffff;
+        font-size:.78rem;
+        font-weight:800;
+        letter-spacing:.02em;
+        box-shadow:0 8px 18px rgba(37,99,235,.24);
+      }
+      .latest-gen-mobile-btn:active{
+        transform:translateY(1px);
+      }
+      .dark .latest-gen-mobile-btn{
+        border-color:#38bdf8;
+        background:linear-gradient(135deg,#0284c7,#1d4ed8);
+      }
       .drag-ruler-zone{
         width:100%;
         padding-top:6px;
@@ -740,6 +759,9 @@
       <button onclick="setMode('booking')" id="bookingBtnMain"
         class="flex-1 px-3 py-2 rounded-lg text-sm border">Booking Mode</button>
     </div>
+    <button onclick="openLatestGeneralActionChooser()" class="latest-gen-mobile-btn">
+      Latest Gen (60D)
+    </button>
     <div class="grid grid-cols-2 gap-2">
       <div class="rounded-lg px-3 py-2 bg-blue-50 border border-blue-200 dark:bg-slate-900 dark:border-slate-700">
         <div class="text-[10px] uppercase tracking-wide font-semibold text-blue-700 dark:text-blue-300">Travel Date</div>
