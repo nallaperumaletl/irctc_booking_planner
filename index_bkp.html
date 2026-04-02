@@ -9,21 +9,9 @@
 
   <!-- ✅ Tailwind + Flatpickr + jsPDF -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Modern font & Tailwind setup -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <!-- Make Tailwind respect `dark` class -->
   <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Manrope"', 'Inter', 'system-ui', 'sans-serif']
-          }
-        }
-      }
-    };
+    tailwind.config = { darkMode: 'class' };
   </script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -43,29 +31,31 @@
       border-radius:10px;
       padding:.5rem;
       transition:background-color .15s,color .15s,box-shadow .15s,border-color .15s;
-      background:rgba(0,0,0,0.02);
     }
     /* Hover (light) */
     .cal-cell:hover{
-      background:#fde68a !important;     /* soft amber */
-      color:#1f2937 !important;
-      box-shadow:0 4px 10px rgba(0,0,0,0.08);
+      background:#eff6ff !important;     /* blue-50 */
+      color:#1d4ed8 !important;          /* blue-700 */
     }
     /* Hover (dark) */
     .dark .cal-cell:hover{
-      background:#f6e05e !important;     /* amber-300 */
-      color:#111827 !important;
+      background:#111827 !important;     /* slate-900 */
+      color:#f1f5f9 !important;          /* slate-100 */
     }
 
-    /* Selected date */
+    /* Selected (light) */
     .selected-cell{
-      background:linear-gradient(135deg,#38bdf8,#2563eb) !important;
-      border:1px solid rgba(255,255,255,0.45) !important;
-      box-shadow:0 8px 18px rgba(37,99,235,.35);
-      color:#0b1024 !important;
-      font-weight:800;
+      background:#eaf2ff !important;     /* softer blue-50 */
+      border:1px solid #93c5fd !important; /* blue-300 */
+      box-shadow:0 0 0 2px rgba(59,130,246,.14);
     }
-    .selected-cell div{ color:#0b1024 !important; }
+    /* Selected (dark) */
+    .dark .selected-cell{
+      background:#0f172a !important;     /* slate-900 */
+      border:1px solid #38bdf8 !important; /* sky-400 */
+      box-shadow:0 0 0 2px rgba(56,189,248,.22);
+      color:#e5e7eb !important;
+    }
 
     /* ===== Holiday dot + tooltip ===== */
     .holiday-tip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px}
@@ -76,344 +66,62 @@
     .dark .holiday-dot{ box-shadow:0 0 0 2px #0b1220; } /* ring on dark bg */
     .tip-bubble{
       position:absolute;left:50%;transform:translateX(-50%);bottom:-30px;
-      background:#fef08a;color:#1f2937;
+      background:#0f172a;color:#f8fafc;
       padding:4px 8px;border-radius:6px;font-size:11px;line-height:1;
       border:1px solid rgba(148,163,184,.4);
       opacity:0;pointer-events:none;white-space:nowrap;transition:opacity .12s ease;
     }
-    .dark .tip-bubble{ background:#0f172a; color:#f8fafc; }
     .holiday-tip:hover .tip-bubble{opacity:1}
     .cal-cell:hover .tip-bubble{opacity:1}
 
-    /* ===== Layout & surfaces ===== */
-    /* ===== Theme ===== */
-    body{
-      background:linear-gradient(135deg,#e7f1ff 0%,#f4f8ff 60%,#ffffff 100%);
-      color:#586e75; /* solarized base00 */
-      font-family:'Manrope', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    .dark body{
-      background:linear-gradient(135deg, #0b1024 0%, #0f172a 45%, #3b0764 100%);
-      color:#e9ecff;
-    }
-    .panel{
-      background:rgba(246,250,255,0.96);
-      border:1px solid #d7e3f4;
-      box-shadow:0 12px 28px rgba(99,110,123,.16);
-      border-radius:18px;
-      color:#073642; /* solarized base02 */
-    }
-    .dark .panel{
-      background:linear-gradient(160deg, rgba(15,23,42,0.55), rgba(10,12,26,0.65));
-      border-color:rgba(59,73,117,0.55);
-      box-shadow:0 18px 40px rgba(0,0,0,.55);
-      color:#e5e7eb;
-    }
-    .app-nav{
-      background:linear-gradient(120deg, #eef3ff, #f7faff);
-      border:1px solid #d7e3f4;
-      box-shadow:0 12px 32px rgba(101,110,117,.16);
-      border-radius:16px;
-      color:#31404b;
-    }
-    .dark .app-nav{
-      background:linear-gradient(120deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04));
-      border:1px solid rgba(255,255,255,0.14);
-      box-shadow:0 18px 50px rgba(0,0,0,.35);
-      color:#f8fafc;
-    }
-    /* === Reminder modal (bookingdate-style) === */
-    .reminder-overlay{
-      position:fixed; inset:0; background:rgba(15,23,42,.45); backdrop-filter:blur(6px);
-      display:none; align-items:center; justify-content:center; z-index:999;
-    }
-    .reminder-overlay.show{ display:flex; }
-    .reminder-card{
-      width:min(92vw,780px);
-      max-height:84vh;
-      overflow:auto;
-      border-radius:18px;
-      background:#ffffff;
-      box-shadow:0 30px 80px rgba(15,23,42,.35);
-      border:1px solid #d7e3f4;
-    }
-    .dark .reminder-card{ background:#0f172a; }
-    .reminder-head{
-      padding:14px 18px;
-      color:#fff;
-      background:linear-gradient(90deg,#2563eb,#8b5cf6);
-      border-top-left-radius:18px; border-top-right-radius:18px;
-      display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:1;
-    }
-    .reminder-progress{
-      display:none;
-    }
-    .reminder-progress-grid{
-      margin-left:auto;
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:8px;
-      width:100%;
-      max-width:380px;
-      padding:0 12px;
-    }
-    .rem-step{
-      height:6px;
-      border-radius:999px;
-      background:rgba(255,255,255,0.28);
-    }
-    .rem-step.active{
-      background:#ffffff;
-      box-shadow:0 0 0 1px rgba(255,255,255,0.2), 0 3px 8px rgba(255,255,255,.18);
-    }
-    .dark .rem-step{ background:rgba(255,255,255,0.25); }
-    .dark .rem-step.active{ background:#fff; }
-    .rem-dot{
-      display:inline-block;
-      width:10px; height:10px;
-      border-radius:50%;
-      background:#22c55e;
-      box-shadow:0 0 0 4px rgba(34,197,94,0.18);
-      margin-right:8px;
-      animation:pulseDot 1.6s ease-in-out infinite;
-    }
-    @keyframes pulseDot{
-      0%,100%{ transform:scale(1); opacity:1; }
-      50%{ transform:scale(1.2); opacity:0.72; }
-    }
-    .reminder-step-body{ padding:18px; }
-    .reminder-list{ border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
-    .reminder-row{
-      display:flex; justify-content:space-between; align-items:center;
-      padding:12px 14px; border-bottom:1px solid #e5e7eb; cursor:pointer;
-    }
-    .reminder-row:last-child{ border-bottom:none; }
-    .reminder-row:hover{ background:#f1f5f9; }
-    .reminder-tag{ padding:4px 10px; border-radius:9999px; background:#e0f2fe; color:#075985; font-weight:700; font-size:.78rem; }
-    .reminder-dot{
-      display:inline-block; width:9px; height:9px; border-radius:50%;
-      background:#2563eb; margin-right:6px; box-shadow:0 0 0 3px rgba(37,99,235,0.14);
-    }
-    .reminder-badge{
-      padding:4px 10px; border-radius:10px; font-weight:700; font-size:.78rem;
-      background:#ede9fe; color:#5b21b6;
-    }
-    .reminder-badge.alt{ background:#e0f2fe; color:#075985; }
-    .dark .reminder-list{ border-color:#334155; }
-    .dark .reminder-row{ border-color:#334155; color:#e5e7eb; }
-    .dark .reminder-row:hover{ background:#1e293b; }
-    .dark .reminder-tag{ background:#0ea5e9; color:#0b1024; }
-    .dark .reminder-dot{ background:#22d3ee; box-shadow:0 0 0 3px rgba(34,211,238,0.2); }
-    .dark .reminder-badge{ background:#334155; color:#e5e7eb; }
-    .dark .reminder-badge.alt{ background:#0ea5e9; color:#0b1024; }
-    .reminder-actions{ display:none !important; }
-    .reminder-btn{
-      flex:1; padding:10px 12px; border-radius:10px; font-weight:700; text-align:center; border:1px solid #cbd5e1; background:#fff; color:#1f2937;
-      transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
-    }
-    .reminder-btn:hover{
-      transform:translateY(-1px);
-      box-shadow:0 8px 18px rgba(15,23,42,.12);
-      background:#f1f5f9;
-    }
-    .reminder-btn.primary{
-      background:linear-gradient(90deg,#2563eb,#8b5cf6);
-      border:none; color:#fff;
-      box-shadow:0 10px 24px rgba(37,99,235,.25);
-    }
-    .reminder-btn.primary:hover{
-      transform:translateY(-1px);
-      box-shadow:0 12px 26px rgba(37,99,235,.28);
-      filter:brightness(1.03);
-    }
-    .dark .reminder-btn{ background:#0f172a; color:#e5e7eb; border-color:#334155; }
-    .dark .reminder-btn.primary{ color:#fff; }
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 12px;
-      border-radius:9999px;
-      background:rgba(255,255,255,0.14);
-      border:1px solid rgba(255,255,255,0.22);
-      color:#0f172a;
-      font-weight:800;
-      letter-spacing:.02em;
-      text-shadow:0 1px 2px rgba(255,255,255,0.5);
-    }
-    .btn-primary{
-      background:linear-gradient(90deg,#268bd2,#2aa198);
-      color:#fdf6e3;
-      border:1px solid rgba(38,139,210,0.25);
-      box-shadow:0 10px 22px rgba(38,139,210,.25);
-    }
-    .dark .btn-primary{
-      background:linear-gradient(90deg,#fde68a,#f59e0b);
-      color:#1f2937;
-      border:1px solid rgba(0,0,0,0.08);
-      box-shadow:0 10px 22px rgba(245,158,11,.25);
-    }
-    .btn-primary:hover{ filter:brightness(1.05); }
-
-    /* Readability on dark gradient */
-    h1,h2,h3,h4,h5,h6{ color:#eef2ff; }
-    .label-strong{ color:#edf1ff; font-weight:700; }
-    .muted{ color:#cbd5ff; }
-    #monthYear{ color:#eef2ff; }
-    .panel p, .panel span, .panel label{ color:inherit; }
+    /* ===== Panels & inputs (dark) ===== */
+    .dark body{ background:#0b1220; color:#e5e7eb; }
+    .dark .panel{ background:#0b1220; color:#e5e7eb; }
     .field{
-      background:#fff !important;
-      border-color:#d3c6a5 !important;
-      color:#31404b !important;
+      background:#ffffff !important;
+      border-color:#cbd5e1 !important;
+      color:#0f172a !important;
     }
-    .field::placeholder{ color:#8a8f99; }
     .dark .field{
-      background:rgba(15,23,42,0.72) !important;
-      border-color:rgba(255,255,255,0.18) !important;
-      color:#f8fafc !important;
+      background:#0f172a !important;
+      border-color:#3b4252 !important;
+      color:#e5e7eb !important;
     }
 
-    .mode-btn{
-      padding:.6rem .85rem;
-      border-radius:10px;
-      border:1px solid #cbd5e1;
-      background:#ffffff;
-      color:#1f2937;
-      font-size:.9rem;
-      font-weight:700;
-    }
-    .dark .mode-btn{
-      border-color:rgba(255,255,255,0.25);
-      background:rgba(255,255,255,0.08);
-      color:#e5e7eb;
-    }
+    /* Travel/Booking cards (strong, readable) */
+    .card-title{ font-size:11px; letter-spacing:.04em; text-transform:uppercase; font-weight:700; }
+    .card-value{ font-size:1.375rem; font-weight:700; }
 
-    /* Travel/Booking cards (bold, glassy) */
-    .card-title{ font-size:11px; letter-spacing:.04em; text-transform:uppercase; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,0.25); }
-    .card-value{ font-size:1.5rem; font-weight:800; text-shadow:0 1px 3px rgba(0,0,0,0.3); }
-    .card-blue{
-      background:linear-gradient(145deg,#1d4ed8,#0ea5e9);
-      border:1px solid rgba(255,255,255,0.18);
-      box-shadow:0 14px 30px rgba(14,165,233,.35);
-      color:#e0f2fe;
-    }
-    .card-green{
-      background:linear-gradient(145deg,#22c55e,#16a34a);
-      border:1px solid rgba(255,255,255,0.18);
-      box-shadow:0 14px 30px rgba(34,197,94,.35);
-      color:#ecfdf3;
-    }
-    .card-blue .card-title,
-    .card-green .card-title,
-    .card-blue .card-value,
-    .card-green .card-value{ color:#f8fafc; }
-    .card-blue .card-value, .card-green .card-value{ text-shadow:0 2px 4px rgba(0,0,0,0.35); }
-    button.border{ border-color:rgba(255,255,255,0.26) !important; color:#eef2ff; }
+    /* Light cards */
+    .card-blue{ background:#eff6ff; border:1px solid #bfdbfe; }   /* Travel */
+    .card-green{ background:#ecfdf5; border:1px solid #a7f3d0; }   /* Booking */
+    .card-blue .card-title{ color:#1e3a8a; }
+    .card-green .card-title{ color:#065f46; }
+    .card-blue .card-value{ color:#0f172a; }
+    .card-green .card-value{ color:#052e21; }
+
+    /* Dark cards */
+    .dark .card-blue{ background:#0f172a !important; border-color:#1d4ed8 !important; }
+    .dark .card-green{ background:#0b1f1a !important; border-color:#059669 !important; }
+    .dark .card-blue .card-title{ color:#c7d2fe !important; }
+    .dark .card-green .card-title{ color:#bbf7d0 !important; }
+    .dark .card-blue .card-value,
+    .dark .card-green .card-value{ color:#e5e7eb !important; }
 
     /* Labels */
-    .label-strong{ color:#31404b; font-weight:700; }
-    .muted{ color:#6d7986; }
-    .dark .label-strong{ color:#edf1ff; }
-    .dark .muted{ color:#cbd5ff; }
-    .panel .text-slate-800,
-    .panel .text-slate-700,
-    .panel .text-gray-700{ color:inherit !important; }
-    .panel .text-slate-500,
-    .panel .text-gray-500{ color:#6d7986 !important; }
-    .dark .panel .text-slate-800,
-    .dark .panel .text-slate-700,
-    .dark .panel .text-gray-700{ color:#eef2ff !important; }
-    .dark .panel .text-slate-500,
-    .dark .panel .text-gray-500{ color:#cbd5ff !important; }
-    #calendar, #calendar div{ color:#073642; }
-    #monthYear, #threeMonthLeaves *{ color:#073642 !important; }
-    #monthYear{ text-shadow:0 1px 2px rgba(0,0,0,0.08); }
-    .dark #calendar, .dark #calendar div{ color:#e9ecff; }
-    .banner-label{
-      background:#e5e7eb;
-      color:#111827;
-      border:1px solid #d4d4d8;
-      box-shadow:none;
-      font-weight:700;
-    }
-    .booking-line{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-weight:700;
-      flex-wrap:wrap;
-      white-space:nowrap;
-    }
-    .booking-line span:first-child{ color:#334155; }
-    .live-pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:6px 12px;
-      border-radius:9999px;
-      background:#f1f5f9;
-      color:#0f172a;
-      font-weight:800;
-      letter-spacing:.04em;
-      box-shadow:none;
-      border:1px solid #dce1e7;
-      position:relative;
-    }
-    .live-pill::before{
-      content:"";
-      width:10px; height:10px; display:inline-block;
-      border-radius:9999px;
-      background:radial-gradient(circle at 30% 30%, #22c55e 0%, #16a34a 60%, #0f5132 100%);
-      box-shadow:0 0 0 6px rgba(34,197,94,0.14);
-      animation:pulseDot 1.6s ease-in-out infinite;
-      flex-shrink:0;
-    }
-    .live-pill::after{ display:none; }
-    @keyframes pulseDot{
-      0%,100%{ transform:scale(0.9); box-shadow:0 0 0 4px rgba(34,197,94,0.18); }
-      50%{ transform:scale(1.2); box-shadow:0 0 0 8px rgba(34,197,94,0.10); }
-    }
-    .banner-text{ color:#0f172a; }
-    .dark .banner-text{ color:#e2e8f0; }
-    .banner-sub{ color:#475569; }
-    .dark .banner-sub{ color:#cbd5f5; }
-    .date-pill{
-      display:inline-block;
-      background:linear-gradient(135deg,#d1fae5,#34d399);
-      color:#065f46; /* deeper contrast */
-      padding:8px 14px;
-      border-radius:12px;
-      font-weight:900;
-      font-size:14px;
-      box-shadow:0 6px 14px rgba(22,163,74,0.18);
-      border:1px solid rgba(22,163,74,0.35);
-    }
-    .live-date{ background:linear-gradient(135deg,#d1fae5,#34d399); color:#065f46; box-shadow:0 6px 14px rgba(22,163,74,0.18); border:1px solid rgba(22,163,74,0.35); }
-    .cal-cell{
-      background:rgba(255,255,255,0.02);
-    }
-    .cal-cell:hover{
-      background:rgba(255,255,255,0.08) !important;
-      color:#111827 !important;
-    }
-    /* ensure text contrast in panels */
-    .panel p, .panel label, .panel span, .panel select, .panel option{ color:#073642; }
-    .panel a{ color:#1d4ed8; }
-    .panel a:hover{ color:#1e40af; }
-    .dark .panel p, .dark .panel label, .dark .panel span, .dark .panel select, .dark .panel option{ color:#eef2ff; }
-    .dark .panel a{ color:#a5d8ff; }
-    .dark .panel a:hover{ color:#c7e5ff; }
+    .label-strong{ color:#0f172a; font-weight:600; }
+    .dark .label-strong{ color:#f1f5f9; }
+    .muted{ color:#475569; }
+    .dark .muted{ color:#cbd5e1; }
 
     /* ===== Share icons: solid backgrounds = clear logos ===== */
     .icon-btn{
       width:40px;height:40px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;
-      box-shadow:0 0 0 1px rgba(255,255,255,.12) inset;
+      box-shadow:0 0 0 1px rgba(0,0,0,.04) inset;
     }
     .icon-btn-sm{
       width:32px;height:32px;border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;
-      box-shadow:0 0 0 1px rgba(255,255,255,.12) inset;
-      color:#0b1024;
-      background:rgba(255,255,255,0.9);
+      box-shadow:0 0 0 1px rgba(0,0,0,.04) inset;
     }
     .icon-wa{ background:#22c55e; color:#ffffff; }       /* WhatsApp */
     .icon-mail{ background:#6366f1; color:#ffffff; }     /* Email */
@@ -968,7 +676,7 @@
 <body class="bg-gray-100 text-gray-800 transition-all duration-300">
 
   <!-- ================= NAVIGATION ================= -->
-  <div class="flex justify-between items-center app-nav px-6 py-4 mb-3 mx-4 mt-4">
+  <div class="flex justify-between items-center bg-white shadow px-6 py-4 dark:panel">
     <h1 class="text-xl font-bold text-blue-600 flex items-center gap-2">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 64 64" aria-hidden="true">
         <circle cx="32" cy="32" r="29" fill="#ffffff" stroke="#000000" stroke-width="4"/>
@@ -1020,18 +728,21 @@
 
   <!-- Booking window banner -->
   <div id="bookingWindowBanner"
-    class="panel px-4 py-3 text-slate-800 flex items-center gap-3 flex-wrap text-[13px] md:text-sm border border-slate-200 bg-white dark:bg-slate-900 mx-4 transition-all duration-200 shadow-sm">
-    <span class="live-pill" aria-label="Live status">LIVE</span>
-    <span class="banner-label uppercase text-[11px] font-extrabold tracking-wide px-2.5 py-1 rounded-full">
-      Booking Window
-    </span>
-    <div id="bookingWindowText" class="booking-line">
-      <span>Today you can book tickets for journey date till</span>
-      <span id="bookingWindowDate" class="date-pill live-date">--</span>
+    class="bg-amber-50 border-y border-amber-200 text-amber-900 px-4 py-2 flex flex-col gap-1 md:flex-row md:items-center md:justify-between shadow-sm text-[13px] md:text-sm dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-100">
+    <div class="flex items-center gap-3">
+      <span class="uppercase text-[11px] font-bold tracking-wide bg-white/80 px-2 py-1 rounded border border-amber-200 text-amber-700 dark:bg-amber-900/40 dark:border-amber-700 dark:text-amber-50">
+        Booking Window
+      </span>
+      <div id="bookingWindowText" class="text-sm md:text-base font-semibold">
+        Today you can book tickets for journey date till --
+      </div>
+    </div>
+    <div class="text-xs text-amber-700 dark:text-amber-200">
+      Auto-updates with your ARP selection (60/120 days)
     </div>
   </div>
 
-  <div id="mobileSettingsMenu" class="mobile-menu-panel mobile-only flex-col gap-3 px-4 py-3 panel border border-white/10">
+  <div id="mobileSettingsMenu" class="mobile-menu-panel mobile-only flex-col gap-3 px-4 py-3 bg-white border-b dark:panel dark:border-slate-700">
     <div class="flex items-center gap-2 text-sm">
       <label for="toggleHolidaysMobile" class="font-medium">Holidays (TN)</label>
       <input id="toggleHolidaysMobile" type="checkbox" class="w-4 h-4 accent-green-600" checked>
@@ -1057,12 +768,12 @@
   </div>
 
   <!-- Mobile quick controls -->
-  <div class="mobile-only flex-col gap-2 px-4 py-3 panel border border-white/10">
+  <div class="mobile-only flex-col gap-2 px-4 py-3 bg-white border-b dark:panel dark:border-slate-700">
     <div class="flex gap-2">
       <button onclick="setMode('travel')" id="travelBtnMain"
-        class="flex-1 mode-btn">Travel Mode</button>
+        class="flex-1 px-3 py-2 rounded-lg text-sm border">Travel Mode</button>
       <button onclick="setMode('booking')" id="bookingBtnMain"
-        class="flex-1 mode-btn">Booking Mode</button>
+        class="flex-1 px-3 py-2 rounded-lg text-sm border">Booking Mode</button>
     </div>
     <button onclick="openLatestGeneralActionChooser()" class="latest-gen-mobile-btn">
       Latest Gen (60D)
@@ -1093,7 +804,7 @@
   <div id="calculatorView">
     <div class="flex flex-col lg:flex-row">
       <!-- LEFT CALENDAR -->
-      <div class="w-full lg:w-2/3 p-6 panel border border-white/8">
+      <div class="w-full lg:w-2/3 p-6 bg-white shadow dark:panel">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-xl font-semibold text-blue-600">Select Date</h2>
 
@@ -1110,9 +821,9 @@
         </div>
 
         <div class="flex justify-between items-center mb-3">
-          <button onclick="prevMonth()" class="px-3 py-1 bg-amber-300 text-slate-900 font-bold rounded shadow">◀</button>
-          <h2 id="monthYear" class="text-lg font-extrabold text-gray-900 dark:text-amber-200"></h2>
-          <button onclick="nextMonth()" class="px-3 py-1 bg-amber-300 text-slate-900 font-bold rounded shadow">▶</button>
+          <button onclick="prevMonth()" class="px-3 py-1 bg-gray-200 rounded">◀</button>
+          <h2 id="monthYear" class="text-lg font-semibold"></h2>
+          <button onclick="nextMonth()" class="px-3 py-1 bg-gray-200 rounded">▶</button>
         </div>
 
         <div id="calendar" class="grid grid-cols-7 gap-2 text-center"></div>
@@ -1123,26 +834,15 @@
           <span>Leave/Holiday (TN)</span>
         </div>
 
-        <!-- Plan ticket CTA -->
-        <div class="mt-6 flex items-center gap-2 text-sm text-gray-500">
-          <div class="flex-1 h-px bg-slate-200"></div>
-          <span class="uppercase tracking-wide text-xs text-slate-500">or</span>
-          <div class="flex-1 h-px bg-slate-200"></div>
-        </div>
-        <button onclick="openReminderFlow()" class="w-full mt-3 py-3 rounded-lg text-white font-semibold text-base shadow-lg"
-          style="background:linear-gradient(120deg,#7c3aed,#8b5cf6,#22c1c3); border:1px solid rgba(255,255,255,.3);">
-          📅 Plan Ticket
-        </button>
-
         <!-- Dynamic 3-month leave list -->
-        <div class="mt-4 border rounded-lg p-3 bg-[#f4f7ff] border border-[#d7e3f4] shadow-sm">
-          <div class="text-sm font-semibold mb-2 text-gray-900">Leave List (Current + Next 2 Months)</div>
-          <div id="threeMonthLeaves" class="text-sm text-gray-800"></div>
+        <div class="mt-4 border rounded-lg p-3 bg-slate-50 dark:bg-slate-900/40 dark:border-slate-700">
+          <div class="text-sm font-semibold mb-2 text-slate-700 dark:text-slate-200">Leave List (Current + Next 2 Months)</div>
+          <div id="threeMonthLeaves" class="text-sm text-slate-700 dark:text-slate-200"></div>
         </div>
       </div>
 
       <!-- RIGHT PANEL -->
-      <div id="actionPanel" class="w-full lg:w-1/3 p-6 panel border border-[#d7e3f4] shadow-lg">
+      <div id="actionPanel" class="w-full lg:w-1/3 p-6 bg-blue-50 panel shadow dark:panel">
         <div id="actionPanelHandleWrap" class="mobile-only justify-center drag-ruler-zone">
           <div id="actionPanelHandle" class="sheet-handle" aria-hidden="true"></div>
         </div>
@@ -1171,10 +871,10 @@
 
         <div class="flex gap-2 mb-4">
           <button onclick="setMode('travel')" id="travelBtn"
-            class="mode-btn">Travel Mode</button>
+            class="px-3 py-2 rounded-lg text-sm border">Travel Mode</button>
 
           <button onclick="setMode('booking')" id="bookingBtn"
-            class="mode-btn">Booking Mode</button>
+            class="px-3 py-2 rounded-lg text-sm border">Booking Mode</button>
         </div>
 
         <!-- Cards -->
@@ -1209,7 +909,7 @@
 
         <div class="mt-2">
           <p class="font-semibold">Days Remaining:</p>
-          <p id="countdown" class="text-amber-200 font-semibold">--</p>
+          <p id="countdown" class="text-orange-700 font-semibold dark:text-amber-300">--</p>
         </div>
 
         <div class="mt-2">
@@ -1270,24 +970,24 @@
         <div class="flex flex-col gap-2 pt-4">
           <div class="flex gap-2">
             <button onclick="downloadTXT()"
-              class="flex-1 bg-amber-200 text-slate-900 p-2 rounded-lg text-sm font-semibold shadow-sm">📝 Download TXT</button>
+              class="flex-1 bg-gray-200 p-2 rounded-lg text-sm dark:bg-slate-700 dark:text-slate-100">📝 Download TXT</button>
 
             <button onclick="downloadAllInOnePDF()"
-              class="flex-1 bg-green-600 text-white p-2 rounded-lg text-sm font-semibold shadow-sm">📄 Download PDF</button>
+              class="flex-1 bg-green-600 text-white p-2 rounded-lg text-sm">📄 Download PDF</button>
           </div>
           <button onclick="downloadCombinedICSFile()"
-            class="w-full bg-emerald-600 text-white p-2 rounded-lg text-sm font-semibold shadow-sm">
+            class="w-full bg-emerald-600 text-white p-2 rounded-lg text-sm">
             📅 Download ICS (Booking + Travel)
           </button>
           <button onclick="openLatestGeneralActionChooser()"
-            class="w-full bg-sky-600 text-white p-2 rounded-lg text-sm font-semibold shadow-sm">
+            class="w-full bg-sky-600 text-white p-2 rounded-lg text-sm font-semibold">
             Latest Gen
           </button>
         </div>
 
-        <div class="text-xs pt-4 flex items-center gap-2">
+        <div class="text-xs text-gray-600 pt-4 flex items-center gap-2 dark:text-slate-300">
           <span>Official Website:</span>
-          <a href="https://www.irctc.co.in" target="_blank" class="text-sky-200 underline">https://www.irctc.co.in</a>
+          <a href="https://www.irctc.co.in" target="_blank" class="text-blue-600 underline">https://www.irctc.co.in</a>
           <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M14 3h7m0 0v7m0-7L10 14M5 7v10a2 2 0 0 0 2 2h10"/>
@@ -1329,33 +1029,8 @@
   <div id="assistantOverlay" class="assistant-overlay" onclick="toggleAssistantPanel(false)"></div>
   <div id="actionPanelOverlay" onclick="closeMobileActionPanel()"></div>
 
-  <!-- Reminder modal -->
-  <div id="reminderOverlay" class="reminder-overlay" role="dialog" aria-modal="true">
-    <div class="reminder-card">
-      <div class="reminder-head">
-        <span aria-hidden="true">🚆</span>
-        <div>
-          <div class="font-semibold text-sm">Train Journey Reminder</div>
-          <div class="text-xs opacity-80">Step <span id="remStepLabel">1</span> of 4</div>
-        </div>
-        <div class="reminder-progress-grid">
-          <span class="rem-step" id="remStepDot1"></span>
-          <span class="rem-step" id="remStepDot2"></span>
-          <span class="rem-step" id="remStepDot3"></span>
-          <span class="rem-step" id="remStepDot4"></span>
-        </div>
-        <button onclick="closeReminderFlow()" aria-label="Close" class="ml-3 text-lg">✕</button>
-      </div>
-      <div id="reminderBody" class="reminder-step-body"></div>
-      <div class="reminder-actions">
-        <button id="remPrev" class="reminder-btn" onclick="remPrevStep()">◀ Back</button>
-        <button id="remNext" class="reminder-btn primary" onclick="remNextStep()">Next ▶</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ================= SAVED VIEW ================= -->
-  <div id="savedView" class="hidden p-6 min-h-screen">
+  <div id="savedView" class="hidden p-6 bg-gray-50 min-h-screen dark:panel">
     <div id="savedViewHandleWrap" class="mobile-only justify-center mb-3 py-2 drag-ruler-zone">
       <div id="savedViewHandle" class="sheet-handle" aria-hidden="true"></div>
     </div>
@@ -1367,8 +1042,8 @@
     </div>
     <h2 class="text-2xl font-bold mb-6 text-indigo-700 dark:text-indigo-200">Saved Travel Plans</h2>
 
-    <div class="overflow-x-auto panel border border-white/10">
-      <table class="min-w-full text-sm text-left border border-white/5">
+    <div class="overflow-x-auto bg-white shadow rounded-lg dark:panel">
+      <table class="min-w-full text-sm text-left border dark:border-slate-700">
         <thead class="bg-indigo-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200">
           <tr>
             <th class="p-3 border dark:border-slate-700">#</th>
@@ -1479,8 +1154,6 @@
     let assistantInitialized = false;
     let assistantExpanded = false;
     let latestGeneralActionBundle = null;
-    let reminderStep = 1;
-    let reminderState = { festival:null, durationDays:null, arrivalLead:null };
 
     // Holidays TN - sample (2026). Replace/import per year.
     let tnHolidays = [
@@ -1492,8 +1165,6 @@
       {"date":"2026-04-14","label":"Tamil New Year / Ambedkar Jayanthi"},
       {"date":"2026-05-01","label":"Labour Day"},
       {"date":"2026-08-15","label":"Independence Day"},
-      {"date":"2026-08-29","label":"Anu BDay"},
-      {"date":"2026-09-13","label":"Raju BDay"},
       {"date":"2026-09-17","label":"Vinayagar Chaturthi"},
       {"date":"2026-10-02","label":"Gandhi Jayanthi"},
       {"date":"2026-10-18","label":"Ayudha Pooja"},
@@ -1521,12 +1192,18 @@
 
     /* ===== Username guard ===== */
     (function initUserGuard(){
-      // Suppress name/route prompts; set defaults silently
-      currentUserName = (localStorage.getItem("irctcUserName") || "Friend").trim();
-      routeSource = (localStorage.getItem("irctcRouteSource") || "Madurai").trim();
-      routeDestination = (localStorage.getItem("irctcRouteDestination") || "Chennai").trim();
-      routePreference = (localStorage.getItem("irctcRoutePreference") || "source_to_dest_monday").trim();
-      routeConfigured = true;
+      currentUserName = (localStorage.getItem("irctcUserName") || "").trim();
+      routeSource = (localStorage.getItem("irctcRouteSource") || "").trim() || "Madurai";
+      routeDestination = (localStorage.getItem("irctcRouteDestination") || "").trim() || "Chennai";
+      routePreference = (localStorage.getItem("irctcRoutePreference") || "").trim() || "source_to_dest_monday";
+      routeConfigured = !!(localStorage.getItem("irctcRouteSource") && localStorage.getItem("irctcRouteDestination"));
+      if(!currentUserName){
+        namePromptTimer = setTimeout(()=>{
+          openNamePrompt();
+        }, 15000);
+      }else if(!routeConfigured){
+        scheduleRoutePrompt(2500);
+      }
     })();
     function openNamePrompt(){
       const backdrop = document.getElementById("nameModalBackdrop");
@@ -1563,12 +1240,20 @@
       scheduleRoutePrompt(2500);
     }
     function skipUserNameFromPrompt(){
-      // no-op; prompts disabled
+      currentUserName = "Hello buddy!";
+      localStorage.setItem("irctcUserName", currentUserName);
+      if(namePromptTimer){ clearTimeout(namePromptTimer); namePromptTimer = null; }
       closeNamePrompt();
+      const pending = pendingProtectedAction;
+      pendingProtectedAction = null;
+      if(typeof pending === "function") pending();
+      scheduleRoutePrompt(2500);
     }
     function requireUserName(actionFn){
-      // Always allow; no prompt
-      return true;
+      if(currentUserName) return true;
+      pendingProtectedAction = actionFn || null;
+      openNamePrompt();
+      return false;
     }
 
     function scheduleRoutePrompt(delayMs = 2500){
@@ -1604,15 +1289,38 @@
       localStorage.setItem("irctcRouteDestination", routeDestination);
       localStorage.setItem("irctcRoutePreference", routePreference);
     }
-    function saveRouteFromPrompt(){ closeRoutePrompt(); }
-    function skipRouteFromPrompt(){ closeRoutePrompt(); }
+    function saveRouteFromPrompt(){
+      const source = document.getElementById("sourceInput");
+      const destination = document.getElementById("destinationInput");
+      const pref = document.getElementById("routePreferenceSelect");
+      const err = document.getElementById("routeError");
+      if(!source || !destination || !pref || !err) return;
+      const s = (source.value || "").trim().replace(/\s+/g, " ");
+      const d = (destination.value || "").trim().replace(/\s+/g, " ");
+      if(s.length < 2 || d.length < 2){
+        err.textContent = "Please enter at least 2 characters for source and destination.";
+        return;
+      }
+      if(s.toLowerCase() === d.toLowerCase()){
+        err.textContent = "Source and destination cannot be same.";
+        return;
+      }
+      persistRoute(s, d, pref.value);
+      closeRoutePrompt();
+      updateAssistantSuggestions();
+    }
+    function skipRouteFromPrompt(){
+      persistRoute(routeSource || "Madurai", routeDestination || "Chennai", routePreference || "source_to_dest_monday");
+      closeRoutePrompt();
+      updateAssistantSuggestions();
+    }
 
     /* ===== UI State ===== */
     function setMode(newMode){
       mode = newMode;
       const resetBtn = (el)=>{
         if(!el) return;
-        el.className = "mode-btn";
+        el.className = "px-3 py-2 rounded-lg text-sm border";
       };
       const setActive = (el, cls1, cls2)=>{
         if(!el) return;
@@ -1631,270 +1339,6 @@
       }
     }
     setMode("booking");
-
-    /* ===== Reminder Flow (BookingDate-style) ===== */
-    function openReminderFlow(){
-      reminderStep = 1;
-      reminderState = { festival:null, durationDays:null, arrivalLead:null };
-      document.getElementById("reminderOverlay").classList.add("show");
-      renderReminderStep();
-    }
-    function closeReminderFlow(){
-      document.getElementById("reminderOverlay").classList.remove("show");
-    }
-    function remPrevStep(){
-      if(reminderStep > 1){ reminderStep--; renderReminderStep(); }
-    }
-    function remNextStep(){
-      if(reminderStep < 4){ reminderStep++; renderReminderStep(); }
-      else closeReminderFlow();
-    }
-    function setReminderProgress(){
-      const label = document.getElementById("remStepLabel");
-      if(label) label.textContent = reminderStep;
-      [1,2,3,4].forEach(i=>{
-        const dot = document.getElementById("remStepDot"+i);
-        if(dot) dot.classList.toggle("active", i <= reminderStep);
-      });
-      // Actions are hidden (auto-advance on selection)
-    }
-    function renderReminderStep(){
-      setReminderProgress();
-      const body = document.getElementById("reminderBody");
-      if(!body) return;
-      if(reminderStep === 1){
-        const groups = tnHolidays.reduce((acc,h)=>{
-          const y = h.date.slice(0,4);
-          acc[y] = acc[y] || [];
-          acc[y].push(h);
-          return acc;
-        },{});
-        let listHtml = "";
-        Object.keys(groups).sort().forEach((y,i)=>{
-          listHtml += `<div class="px-3 py-2 bg-[#e0f2fe] text-[#075985] font-bold flex items-center gap-2" style="border-bottom:1px solid #d7e3f4;">${y}</div>`;
-          listHtml += groups[y].map(h=>{
-            const d = new Date(h.date+"T00:00:00");
-            const dow = d.toLocaleDateString("en-IN",{ weekday:"long" });
-            const month = d.toLocaleDateString("en-IN",{ month:"long", day:"numeric", year:"numeric" });
-            return `<div class="reminder-row" onclick="pickFestival('${h.date}','${h.label}')">
-                      <div class="flex items-center gap-3 flex-wrap">
-                        <span class="rem-dot" aria-hidden="true"></span>
-                        <span class="font-semibold text-gray-900 dark:text-white">${h.label}</span>
-                        <span class="text-xs text-gray-600 dark:text-slate-300 inline-flex items-center gap-1 ml-1">
-                          <span>${month}</span>
-                        </span>
-                        <span class="reminder-badge">${dow}</span>
-                      </div>
-                    </div>`;
-          }).join("");
-        });
-        body.innerHTML = `
-          <div class="flex items-center gap-3 mb-1">
-            <div>
-              <div class="text-xl font-bold text-gray-900 dark:text-white">Select a Festival</div>
-              <div class="text-sm text-gray-600 dark:text-slate-300">Choose a festival to set a reminder for your train journey.</div>
-            </div>
-          </div>
-          <div class="reminder-list">${listHtml}</div>
-        `;
-      }else if(reminderStep === 2){
-        body.innerHTML = `
-          <div class="flex items-center gap-3 mb-1">
-            <button class="reminder-btn" style="max-width:42px; padding:8px;" onclick="remPrevStep()" aria-label="Back"><span class="text-lg">◀</span></button>
-            <div>
-              <div class="text-xl font-bold text-gray-900 dark:text-white">Select Travel Duration</div>
-              <div class="text-sm text-gray-600 dark:text-slate-300">Choose how long you need to travel to reach your destination.</div>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            ${[0,1,2,3,4,5].map(n=>`
-              <button class="reminder-btn" onclick="pickDuration(${n})">⏱ ${n===0?"Same Day":n+" Day"+(n>1?"s":"")}</button>
-            `).join("")}
-          </div>
-        `;
-      }else if(reminderStep === 3){
-        body.innerHTML = `
-          <div class="flex items-center gap-3 mb-1">
-            <button class="reminder-btn" style="max-width:42px; padding:8px;" onclick="remPrevStep()" aria-label="Back"><span class="text-lg">◀</span></button>
-            <div>
-              <div class="text-xl font-bold text-gray-900 dark:text-white">Select Arrival Days</div>
-              <div class="text-sm text-gray-600 dark:text-slate-300">Choose how many days before the festival you want to arrive.</div>
-            </div>
-          </div>
-          <div class="reminder-list">
-            ${[1,2,3,7,14].map(n=>`
-              <div class="reminder-row" onclick="pickArrivalLead(${n})">
-                <div class="flex items-center gap-3">
-                  <span class="reminder-dot" aria-hidden="true"></span>
-                  <span class="font-semibold text-gray-900 dark:text-white">${n===1? "1 Day Before" : n===7? "1 Week Before" : n===14? "2 Weeks Before" : `${n} Days Before`}</span>
-                </div>
-                <span aria-hidden="true">›</span>
-              </div>
-            `).join("")}
-          </div>
-        `;
-      }else if(reminderStep === 4){
-        const fest = reminderState.festival ? new Date(reminderState.festival.date+"T00:00:00") : null;
-        const arrival = fest ? addDays(fest, -(reminderState.arrivalLead || 0)) : null;
-        const travelStart = arrival ? addDays(arrival, -reminderState.durationDays) : null;
-        const bookingDate = travelStart ? addDays(travelStart, -parseInt(document.getElementById("arpSelect").value||60)) : null;
-        const today = stripTime(new Date());
-        const bookingStarted = bookingDate && stripTime(bookingDate) <= today;
-        const daysToJourney = travelStart ? Math.max(0, Math.round((stripTime(travelStart)-today)/(1000*60*60*24))) : null;
-        const festLabel = reminderState.festival ? `${reminderState.festival.label} - ${fest ? fest.toLocaleDateString("en-IN",{ day:"2-digit", month:"short", year:"numeric" }) : ""}` : "--";
-        const bookingLead = (bookingDate && travelStart) ? Math.max(0, Math.round((stripTime(travelStart)-stripTime(bookingDate))/(1000*60*60*24))) : null;
-        const bookingClosed = bookingDate && stripTime(bookingDate) <= today;
-        const bookingDaysAhead = bookingDate ? Math.round((stripTime(bookingDate)-today)/(1000*60*60*24)) : null;
-        const within60 = bookingDaysAhead !== null && bookingDaysAhead > 0 && bookingDaysAhead <= 60;
-        const beyond60 = bookingDaysAhead !== null && bookingDaysAhead > 60;
-        const bookingIso = bookingDate ? isoDate(bookingDate) : "";
-        const travelIso = travelStart ? isoDate(travelStart) : "";
-        body.innerHTML = `
-          <div class="flex items-center gap-3 mb-1">
-            <button class="reminder-btn" style="max-width:42px; padding:8px;" onclick="remPrevStep()" aria-label="Back"><span class="text-lg">◀</span></button>
-            <div>
-              <div class="text-xl font-bold text-gray-900 dark:text-white">Journey Summary</div>
-              <div class="text-sm text-gray-600 dark:text-slate-300">Review your journey details and set a reminder.</div>
-            </div>
-          </div>
-          <div class="space-y-4">
-            <div class="border border-slate-200 rounded-xl p-3 bg-gradient-to-b from-slate-50 to-white">
-              <div class="flex items-center gap-2 text-indigo-700 font-semibold mb-1"><span class="rem-cal-icon" style="border-color:#2563eb; background:#e0f2fe;"></span>Journey Timeline</div>
-              <div class="text-indigo-700 dark:text-indigo-300 font-semibold">${festLabel}</div>
-            </div>
-            <div class="border border-slate-200 rounded-xl p-3 bg-gradient-to-b from-slate-50 to-white space-y-2">
-              <div class="flex items-start justify-between">
-                <div><div class="text-sm text-slate-500">Journey Start Date</div><div class="font-semibold">${travelStart?formatDisplayDate(travelStart):"--"}</div></div>
-                <div class="text-xs text-slate-500 mt-1">${reminderState.durationDays||0} days before arrival</div>
-              </div>
-              <div class="h-px bg-slate-200"></div>
-              <div class="flex items-start justify-between">
-                <div><div class="text-sm text-slate-500">Arrival Date</div><div class="font-semibold">${arrival?formatDisplayDate(arrival):"--"}</div></div>
-                <div class="text-xs text-slate-500 mt-1">${reminderState.arrivalLead||0} day(s) before festival</div>
-              </div>
-            <div class="h-px bg-slate-200"></div>
-            <div class="flex items-start justify-between">
-              <div><div class="text-sm text-slate-500">Festival Date</div><div class="font-semibold">${fest?formatDisplayDate(fest):"--"}</div></div>
-              <div class="text-xs text-slate-500 mt-1">Festival day</div>
-            </div>
-            <div class="h-px bg-slate-200"></div>
-            <div class="flex items-start justify-between">
-              <div><div class="text-sm text-slate-500">Booking Date</div><div class="font-semibold">${bookingDate?formatDisplayDate(bookingDate):"--"}</div><div class="text-xs ${bookingClosed ? "text-rose-600" : bookingStarted?"text-orange-600":"text-emerald-700"}">${bookingClosed ? "Booking closed" : bookingStarted?"Booking started":"Upcoming booking"}</div></div>
-              <div class="text-xs text-slate-500 mt-1">${bookingLead!==null ? `${bookingLead} days before journey` : ""}</div>
-            </div>
-          </div>
-          <div class="border border-emerald-200 bg-emerald-50 rounded-xl p-4 text-center">
-            <div class="font-semibold text-emerald-800 mb-2">Booking Status</div>
-              <div class="text-2xl font-extrabold text-emerald-900">${bookingDate?formatDisplayDate(bookingDate):"--"}</div>
-              <div class="text-sm ${bookingClosed ? "text-rose-600" : bookingStarted ? "text-orange-600" : "text-emerald-700"}">
-                ${bookingClosed ? "Booking window closed" : bookingStarted ? "Booking has already started" : "Booking not opened yet"}
-              </div>
-              <div class="text-xs text-emerald-700 mt-1">${daysToJourney!==null ? `${daysToJourney} days remaining to journey` : ""}</div>
-            </div>
-            ${
-              bookingClosed
-              ? `<div class="reminder-btn primary block text-center" style="pointer-events:none; opacity:0.6;">Closed</div>`
-              : within60
-                ? `<a href="https://www.irctc.co.in/nget/train-search" target="_blank" class="reminder-btn primary block text-center">Book Now</a>`
-                : beyond60
-                  ? `<div class="grid gap-2">
-                      <button class="reminder-btn primary block text-center" onclick="shareWhatsAppReminder('${festLabel}','${bookingIso}','${travelIso}')">Share WhatsApp Reminder</button>
-                      <button class="reminder-btn block text-center" onclick="downloadReminderPDFSummary('${festLabel}','${bookingIso}','${travelIso}')">Download Reminder PDF</button>
-                      <button class="reminder-btn block text-center" onclick="addReminderGoogleCalendar('${bookingIso}','${travelIso}')">Add Google Reminder</button>
-                     </div>`
-                  : `<div class="reminder-btn primary block text-center" style="pointer-events:none; opacity:0.6;">Closed</div>`
-            }
-            <div class="grid gap-2">
-              <button class="reminder-btn" onclick="applyReminderToPlanner('${bookingDate?isoDate(bookingDate):""}')">Apply To Planner</button>
-            </div>
-          </div>
-        `;
-      }
-    }
-    function pickFestival(date,label){
-      reminderState.festival = { date, label };
-      reminderStep = 2;
-      renderReminderStep();
-    }
-    function pickDuration(days){
-      reminderState.durationDays = days;
-      reminderStep = 3;
-      renderReminderStep();
-    }
-    function pickArrivalLead(days){
-      reminderState.arrivalLead = days;
-      reminderStep = 4;
-      renderReminderStep();
-    }
-    function applyReminderToPlanner(bookingIso){
-      if(bookingIso){
-        const d = parseISODate(bookingIso);
-        if(d){
-          selectedDate = d;
-          currentDate = new Date(d);
-          setMode("booking");
-          renderCalendar();
-          calculate();
-        }
-      }
-      closeReminderFlow();
-    }
-
-    function downloadReminderPDFSummary(festLabel, bookingIso, travelIso){
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      const bookingDateObj = parseISODate(bookingIso);
-      const travelDateObj = parseISODate(travelIso);
-      const festivalDateObj = reminderState.festival ? parseISODate(reminderState.festival.date) : null;
-
-      const bookingText = bookingDateObj ? formatDisplayDate(bookingDateObj) : "--";
-      const travelText = travelDateObj ? formatDisplayDate(travelDateObj) : "--";
-      const arpText = (document.getElementById("arpSelect").value || "60") + " Days";
-      const statusText = bookingDateObj ? getStatusText(bookingDateObj) : "Status: --";
-
-      const festivalInfo = {
-        label: festLabel || "--",
-        festivalDateText: festivalDateObj ? formatDisplayDate(festivalDateObj) : "--",
-        festivalDateObj,
-        arrivalLead: reminderState.arrivalLead,
-        durationDays: reminderState.durationDays,
-        note: reminderState.arrivalLead ? `Arrive ${reminderState.arrivalLead} day(s) before festival` : ""
-      };
-
-      renderPlanPDFPage(doc, {
-        bookingText,
-        travelText,
-        arpText,
-        statusText,
-        subtitle: festLabel || "Festival Journey",
-        showMeta: true,
-        showNotes: true,
-        bookingDateObj,
-        travelDateObj,
-        festivalInfo
-      });
-
-      doc.save("IRCTC_Reminder.pdf");
-    }
-    function shareWhatsAppReminder(festLabel, bookingIso, travelIso){
-      const booking = parseISODate(bookingIso);
-      const travel = parseISODate(travelIso);
-      const msg = [
-        "IRCTC Journey Reminder",
-        festLabel || "",
-        "Booking: " + (booking ? formatDisplayDate(booking) : "--"),
-        "Travel: " + (travel ? formatDisplayDate(travel) : "--"),
-        "Book: https://www.irctc.co.in/nget/train-search"
-      ].join("\\n");
-      window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
-    }
-    function addReminderGoogleCalendar(bookingIso, travelIso){
-      const booking = parseISODate(bookingIso);
-      const travel = parseISODate(travelIso);
-      if(!booking || !travel) return;
-      const url = buildGoogleCalendarLink({ type:"booking", travelDate:travel, bookingDate:booking });
-      window.open(url, "_blank");
-    }
 
     /* ===== Calendar Rendering ===== */
     function renderCalendar(){
@@ -3201,7 +2645,7 @@ Website: https://www.irctc.co.in`;
     function renderPlanPDFPage(doc, {
       bookingText, travelText, arpText, statusText, subtitle = "",
       showMeta = true, showNotes = true, accent = { header:[37,99,235], side:[230,244,255] },
-      bookingDateObj = null, travelDateObj = null, festivalInfo = null
+      bookingDateObj = null, travelDateObj = null
     }){
       const blue = accent.header || [37,99,235];
       const side = accent.side || [230,244,255];
@@ -3211,6 +2655,17 @@ Website: https://www.irctc.co.in`;
       doc.setFillColor(blue[0],blue[1],blue[2]); doc.rect(10,0,200,24,'F');
       doc.setTextColor(255,255,255); doc.setFontSize(16);
       doc.text("IRCTC Booking Planner — Plan Summary", 16, 14);
+      if(currentUserName){
+        doc.setFillColor(255,255,255);
+        doc.setDrawColor(219,234,254);
+        doc.roundedRect(146, 6, 56, 12, 2, 2, "FD");
+        doc.setTextColor(30,64,175);
+        doc.setFont("times","italic");
+        doc.setFontSize(10);
+        doc.text(`Hi ${currentUserName}`, 174, 14, {align:"center"});
+        doc.setFont("helvetica","normal");
+        doc.setTextColor(255,255,255);
+      }
       if(subtitle){
         doc.setFontSize(10);
         doc.text(subtitle, 112, 21, {align:"center"});
@@ -3221,14 +2676,6 @@ Website: https://www.irctc.co.in`;
 
       drawPDFCard(doc, textDark, "BOOKING DATE", bookingText, 20, y, [16,185,129]); y += 30;
       drawPDFCard(doc, textDark, "TRAVEL DATE", travelText, 20, y, [37,99,235]); y += 30;
-
-      let calendarPlaced = false;
-      if(festivalInfo){
-        y = drawFestivalBlock(doc, textDark, festivalInfo, 20, y);
-        y = addCalendarLinksToPDF(doc, y, bookingDateObj, travelDateObj);
-        y += 6;
-        calendarPlaced = true;
-      }
 
       if(showMeta){
         doc.setFontSize(12);
@@ -3252,10 +2699,8 @@ Website: https://www.irctc.co.in`;
         ].forEach(t=>{ doc.circle(22,y-2,1,'F'); doc.text(t, 26, y, {maxWidth: 170}); y+=6; });
       }
 
-      if(!calendarPlaced){
-        y += 4;
-        y = addCalendarLinksToPDF(doc, y, bookingDateObj, travelDateObj);
-      }
+      y += 4;
+      y = addCalendarLinksToPDF(doc, y, bookingDateObj, travelDateObj);
 
       y += 8; doc.setDrawColor(235,236,238); doc.line(20,y,190,y); y+=8;
       doc.setFontSize(10);
@@ -3282,40 +2727,6 @@ Website: https://www.irctc.co.in`;
       doc.setFontSize(10);
       doc.text("Reminder: 1 day before is auto-added in downloaded .ICS files.", 20, y);
       return y + 4;
-    }
-    function drawFestivalBlock(doc, textDark, info, x, y){
-      const padTop = 9, lineGap = 6;
-      const line2 = info.note || "";
-      const line3 = info.durationDays!=null ? `Travel Duration: ${info.durationDays} day(s)` : "";
-      const hasCal = !!info.festivalDateObj;
-      const linesCount = 1 + (line2?1:0) + (line3?1:0);
-      const cardH = padTop + (linesCount*lineGap) + (hasCal?lineGap:0) + 6;
-
-      doc.setFillColor(255, 182, 193); // baby pink tab
-      doc.roundedRect(x, y-7, 46, 7, 2, 2, 'F');
-      doc.setTextColor(15,23,42); doc.setFontSize(9);
-      doc.text("FESTIVAL", x+3, y-2);
-
-      doc.setDrawColor(220,222,226);
-      doc.setFillColor(255,255,255);
-      doc.roundedRect(x, y, 170, cardH, 2, 2, "FD");
-
-      doc.setTextColor(textDark[0],textDark[1],textDark[2]);
-      doc.setFontSize(12);
-      doc.text(`${info.label || "--"}`, x+6, y + padTop);
-
-      doc.setFontSize(10);
-      let yy = y + padTop + lineGap;
-      if(line2){ doc.text(line2, x+6, yy); yy += lineGap; }
-      if(hasCal){
-        doc.setTextColor(30,64,175);
-        doc.textWithLink("[Add to Calendar]", x+6, yy, { url: buildGoogleCalendarLink({ type:"festival", festivalDate: info.festivalDateObj }) });
-        doc.setTextColor(textDark[0],textDark[1],textDark[2]);
-        yy += lineGap;
-      }
-      if(line3){ doc.text(line3, x+6, yy); yy += lineGap; }
-
-      return y + cardH + 8;
     }
     function drawPDFCard(doc, textDark, label, value, x, y, color){
       doc.setFillColor(color[0], color[1], color[2]);
@@ -3456,27 +2867,17 @@ Official: https://www.irctc.co.in`;
       a.download = "IRCTC_Booking_And_Travel.ics";
       a.click();
     }
-    function buildGoogleCalendarLink({type, travelDate, bookingDate, festivalDate} = {}){
-      if(!type) return "#";
+    function buildGoogleCalendarLink({type, travelDate, bookingDate}){
       const base = "https://calendar.google.com/calendar/render?action=TEMPLATE";
+      const titleTravel = encodeURIComponent("Train Travel Date");
+      const titleBook = encodeURIComponent(buildBookingSummaryTitle(travelDate));
+      const details = encodeURIComponent(buildEventDescription(bookingDate, travelDate));
       const location = encodeURIComponent("IRCTC Online");
-      if(type === "festival"){
-        if(!festivalDate) return "#";
-        const titleFest = encodeURIComponent("Festival Journey Reminder");
-        const start = ymd(festivalDate);
-        const end = ymd(addDays(festivalDate,1));
-        return `${base}&text=${titleFest}&dates=${start}/${end}&details=${encodeURIComponent("Reach before festival")}&location=${location}`;
-      }else if(type === "travel"){
-        if(!travelDate) return "#";
-        const titleTravel = encodeURIComponent("Train Travel Date");
-        const details = encodeURIComponent(buildEventDescription(bookingDate, travelDate));
+      if(type === "travel"){
         const start = ymd(travelDate);
         const end = ymd(addDays(travelDate,1));
         return `${base}&text=${titleTravel}&dates=${start}/${end}&details=${details}&location=${location}`;
       }else{
-        if(!bookingDate) return "#";
-        const titleBook = encodeURIComponent(buildBookingSummaryTitle(travelDate));
-        const details = encodeURIComponent(buildEventDescription(bookingDate, travelDate));
         const start = ymdhmsLocal(bookingDate, 7,30,0);
         const end   = ymdhmsLocal(bookingDate, 8,0,0);
         return `${base}&text=${titleBook}&dates=${start}/${end}&details=${details}&location=${location}`;
@@ -3724,26 +3125,15 @@ Official: https://www.irctc.co.in`;
       const parsed = parseISODate(raw);
       return parsed ? formatDisplayDate(parsed) : (raw || "--");
     }
-    function formatBannerDate(d){
-      if(!d || Number.isNaN(d.getTime())) return "--";
-      return d.toLocaleDateString("en-IN", {
-        weekday: "short",
-        day: "2-digit",
-        month: "long",
-        year: "numeric"
-      });
-    }
     function updateTodayBookingWindow(){
-      const dateEl = document.getElementById("bookingWindowDate");
-      if(!dateEl) return;
+      const banner = document.getElementById("bookingWindowText");
+      if(!banner) return;
       const arpSel = document.getElementById("arpSelect");
       const arp = arpSel ? parseInt(arpSel.value, 10) || 60 : 60;
       const today = stripTime(new Date());
       const lastTravel = addDays(today, arp);
-      dateEl.textContent = formatBannerDate(lastTravel);
+      banner.innerHTML = `Today you can book tickets for journey date till <span class="font-bold text-emerald-700 bg-white/70 px-2 py-0.5 rounded dark:text-emerald-200 dark:bg-amber-800/50">${formatDisplayDate(lastTravel)}</span>`;
     }
-
-    function toggleBookingBanner(){ /* toggle removed */ }
 
     /* ===== Import Holidays JSON ===== */
     function importHolidaysJSON(e){
