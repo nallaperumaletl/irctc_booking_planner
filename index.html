@@ -2818,21 +2818,25 @@
       const blockW = 182;
       const textColor = [15,23,42];
       const nowLabel = new Date().toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
-      let y = 30;
 
-      doc.setFillColor(15,118,110);
-      doc.rect(0,0,210,28,"F");
+      // Header banner (professional blue with extra padding)
+      const bannerHeight = 34;
+      doc.setFillColor(30,64,175);
+      doc.rect(0,0,210,bannerHeight,"F");
       doc.setTextColor(255,255,255);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(15);
-      doc.text("IRCTC General 60D - Latest Month Plan", marginX, 12);
+      doc.setFontSize(16);
+      doc.text("IRCTC General 60D - Latest Month Plan", marginX, 14);
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.text(`${bundle.monthLabel} | Booking opens at 08:00 AM`, marginX, 19);
-      doc.text(`Generated on ${nowLabel}`, 145, 19);
+      doc.setFontSize(10.5);
+      doc.text(`${bundle.monthLabel} | Booking opens at 08:00 AM`, marginX, 22);
+      doc.text(`Generated on ${nowLabel}`, 145, 22);
       if(currentUserName){
-        doc.text(`Prepared for ${currentUserName}`, marginX, 24);
+        doc.text(`Prepared for ${currentUserName}`, marginX, 28);
       }
+
+      // Body starts after banner with breathing room
+      let y = bannerHeight + 8;
 
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       doc.setFont("helvetica", "normal");
