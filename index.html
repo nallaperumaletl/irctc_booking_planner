@@ -1184,6 +1184,8 @@
               <!-- Train icon -->
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-700 dark:text-blue-300" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 2c3.87 0 7 1.07 7 4v7c0 2.21-1.79 4-4 4l1.8 1.8a1 1 0 1 1-1.42 1.4L13 18H11l-2.38 2.2a1 1 0 1 1-1.32-1.5L9 17c-2.21 0-4-1.79-4-4V6c0-2.93 3.13-4 7-4Zm5 4c0-1.05-2.4-2-5-2s-5 .95-5 2v2h10V6Z"/>
+                <circle cx="9" cy="8.5" r="0.8" fill="#fff"/>
+                <circle cx="15" cy="8.5" r="0.8" fill="#fff"/>
               </svg>
               <div class="card-title">TRAVEL DATE</div>
             </div>
@@ -1800,7 +1802,7 @@
                   ? `<div class="grid gap-2">
                       <button class="reminder-btn primary block text-center" onclick="shareWhatsAppReminder('${festLabel}','${bookingIso}','${travelIso}')">Share WhatsApp Reminder</button>
                       <button class="reminder-btn block text-center" onclick="downloadReminderPDFSummary('${festLabel}','${bookingIso}','${travelIso}')">Download Reminder PDF</button>
-                      <button class="reminder-btn block text-center" onclick="addReminderGoogleCalendar('${bookingIso}','${travelIso}')">Add Google Reminder</button>
+                      <button class="reminder-btn block text-center" onclick="addReminderGoogleCalendar('${bookingIso}','${travelIso}')">Add One Day Before Reminder</button>
                      </div>`
                   : `<div class="reminder-btn primary block text-center" style="pointer-events:none; opacity:0.6;">Closed</div>`
             }
@@ -1879,20 +1881,22 @@
     function shareWhatsAppReminder(festLabel, bookingIso, travelIso){
       const booking = parseISODate(bookingIso);
       const travel = parseISODate(travelIso);
+      const bookingUrl = booking ? buildGoogleCalendarLink({ type:"bookingReminder", bookingDate:booking, travelDate:travel }) : "";
       const msg = [
         "IRCTC Journey Reminder",
         festLabel || "",
         "Booking: " + (booking ? formatDisplayDate(booking) : "--"),
         "Travel: " + (travel ? formatDisplayDate(travel) : "--"),
-        "Book: https://www.irctc.co.in/nget/train-search"
-      ].join("\\n");
+        "Click to set one day before reminder",
+        bookingUrl || "IRCTC train search"
+      ].join("\n");
       window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
     }
     function addReminderGoogleCalendar(bookingIso, travelIso){
       const booking = parseISODate(bookingIso);
       const travel = parseISODate(travelIso);
       if(!booking || !travel) return;
-      const url = buildGoogleCalendarLink({ type:"booking", travelDate:travel, bookingDate:booking });
+      const url = buildGoogleCalendarLink({ type:"bookingReminder", travelDate:travel, bookingDate:booking });
       window.open(url, "_blank");
     }
 
@@ -2708,12 +2712,38 @@
         lines.push(`Office week: ${fmt(row.week.mon)} to ${fmt(row.week.fri)}`);
         legs.forEach((leg)=>{
           lines.push(`${leg.label}: Travel ${fmt(leg.travel)} | Book ${fmt(leg.booking)}`);
-          lines.push(`Calendar: ${buildGoogleCalendarLink({ type:"booking", travelDate:leg.travel, bookingDate:leg.booking })}`);
+          lines.push("Calendar: Click to set reminder for booking date");
+          lines.push("Calendar: Click to set one day before Booking Reminder");
         });
         if(row.reason) lines.push(row.reason);
         lines.push("");
       });
-      lines.push("Official: https://www.irctc.co.in");
+      lines.push("Official: IRCTC website");
+      return lines.join("\n");
+    }
+    function buildLatestGeneralWhatsAppMessage(bundle){
+      const lines = [
+        `IRCTC General 60D Plan (${bundle.monthLabel})`,
+        `Route: ${routeSource} <-> ${routeDestination}`,
+        "Booking opens: 08:00 AM",
+        ""
+      ];
+      bundle.rows.forEach((row, idx)=>{
+        const cycleNo = idx + 1;
+        const legs = row.legs || getRouteLegsForWeek(row.week, "general");
+        lines.push(`Cycle ${cycleNo} - ${getLegStatusChip(row.selected)}`);
+        lines.push(`Office week: ${fmt(row.week.mon)} to ${fmt(row.week.fri)}`);
+        legs.forEach((leg)=>{
+          lines.push(`${leg.label}: Travel ${fmt(leg.travel)} | Book ${fmt(leg.booking)}`);
+          lines.push("Click to set reminder for booking date");
+          lines.push(buildGoogleCalendarLink({ type:"booking", travelDate:leg.travel, bookingDate:leg.booking }));
+          lines.push("Click to set one day before reminder");
+          lines.push(buildGoogleCalendarLink({ type:"bookingReminder", travelDate:leg.travel, bookingDate:leg.booking }));
+        });
+        if(row.reason) lines.push(row.reason);
+        lines.push("");
+      });
+      lines.push("Official: IRCTC website");
       return lines.join("\n");
     }
     function collectLatestGeneralPdfHighlights(bundle){
@@ -2921,6 +2951,7 @@
           const schedule = "Tap the calendar link below to add this leg.";
           const scheduleLines = doc.splitTextToSize(schedule, blockW - 12);
           bodyHeight += 14 + (scheduleLines.length * 4) + 7;
+          bodyHeight += 6;
         });
         if(reasonLines.length) bodyHeight += (reasonLines.length * 4) + 5;
         bodyHeight += 4;
@@ -2981,7 +3012,10 @@
           doc.text(scheduleLines, marginX + 3, lineY + 12.3);
           lineY += 12 + (scheduleLines.length * 4);
           doc.setTextColor(29,78,216);
-          doc.textWithLink("Add to Google Calendar", marginX + 3, lineY + 3, { url: calUrl });
+          doc.textWithLink("Click to set reminder for booking date", marginX + 3, lineY + 3, { url: calUrl });
+          lineY += 6;
+          const dayBeforeUrl = buildGoogleCalendarLink({ type:"bookingReminder", travelDate:leg.travel, bookingDate:leg.booking });
+          doc.textWithLink("Click to set one day before Booking Reminder", marginX + 3, lineY + 3, { url: dayBeforeUrl });
           lineY += 9;
         });
 
@@ -3001,7 +3035,7 @@
       doc.setTextColor(30,41,59);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9.5);
-      doc.text("Official website: https://www.irctc.co.in", marginX, y);
+      doc.text("Official website: IRCTC", marginX, y);
       y += 5;
       doc.text("Generated by IRCTC Booking Planner", marginX, y);
       return doc.output("blob");
@@ -3014,6 +3048,7 @@
       if(!pdfBlob) return alert("Unable to generate Latest Gen PDF.");
       const fileName = `IRCTC_Latest_General60_${bundle.targetMonth.getFullYear()}_${String(bundle.targetMonth.getMonth()+1).padStart(2,"0")}.pdf`;
       const message = buildLatestGeneralShareMessage(bundle);
+      const whatsappMessage = buildLatestGeneralWhatsAppMessage(bundle);
 
       if(type === "pdf"){
         downloadBlobAsFile(pdfBlob, fileName);
@@ -3027,7 +3062,7 @@
           try{
             await navigator.share({
               title: `IRCTC Latest General 60D - ${bundle.monthLabel}`,
-              text: message,
+              text: type === "whatsapp" ? whatsappMessage : message,
               files: [file]
             });
             return;
@@ -3039,7 +3074,7 @@
 
       downloadBlobAsFile(pdfBlob, fileName);
       if(type === "whatsapp"){
-        const url = "https://wa.me/?text=" + encodeURIComponent(message);
+        const url = "https://wa.me/?text=" + encodeURIComponent(whatsappMessage);
         window.open(url, "_blank");
         alert("Opened WhatsApp text and downloaded PDF. Attach the PDF manually if auto-share is unavailable.");
       }else{
@@ -3129,7 +3164,7 @@
 Booking: ${document.getElementById("bookingDate").innerText}
 Travel: ${document.getElementById("travelDate").innerText}
 Opens: 08:00 AM
-Website: https://www.irctc.co.in`;
+Website: IRCTC`;
       const blob=new Blob([content],{type:"text/plain"});
       const link=document.createElement("a");
       link.href=URL.createObjectURL(blob);
@@ -3263,7 +3298,7 @@ Website: https://www.irctc.co.in`;
 
       y += 8; doc.setDrawColor(235,236,238); doc.line(20,y,190,y); y+=8;
       doc.setFontSize(10);
-      doc.text("IRCTC: https://www.irctc.co.in", 20, y); y+=6;
+      doc.text("Official website: IRCTC", 20, y); y+=6;
       doc.text("Generated by IRCTC Booking Planner", 20, y);
     }
     function addCalendarLinksToPDF(doc, y, bookingDateObj, travelDateObj){
@@ -3273,18 +3308,23 @@ Website: https://www.irctc.co.in`;
 
       if(bookingDateObj){
         const bookingUrl = buildGoogleCalendarLink({ type:"booking", bookingDate:bookingDateObj, travelDate:travelDateObj });
-        doc.textWithLink("[Calendar] Add Booking Event", 20, y, { url: bookingUrl });
+        doc.textWithLink("Click to set reminder for booking date", 20, y, { url: bookingUrl });
+        y += 6;
+      }
+      if(bookingDateObj){
+        const dayBeforeUrl = buildGoogleCalendarLink({ type:"bookingReminder", bookingDate:bookingDateObj, travelDate:travelDateObj });
+        doc.textWithLink("Click to set one day before Booking Reminder", 20, y, { url: dayBeforeUrl });
         y += 6;
       }
       if(travelDateObj){
         const travelUrl = buildGoogleCalendarLink({ type:"travel", travelDate:travelDateObj, bookingDate:bookingDateObj });
-        doc.textWithLink("[Calendar] Add Travel Event", 20, y, { url: travelUrl });
+        doc.textWithLink("Click to add travel date reminder", 20, y, { url: travelUrl });
         y += 6;
       }
 
       doc.setTextColor(15,23,42);
       doc.setFontSize(10);
-      doc.text("Reminder: 1 day before is auto-added in downloaded .ICS files.", 20, y);
+      doc.text("Reminder: ICS files include the one-day-before alert at 6:00 PM.", 20, y);
       return y + 4;
     }
     function drawFestivalBlock(doc, textDark, info, x, y){
@@ -3293,7 +3333,7 @@ Website: https://www.irctc.co.in`;
       const line3 = info.durationDays!=null ? `Travel Duration: ${info.durationDays} day(s)` : "";
       const hasCal = !!info.festivalDateObj;
       const linesCount = 1 + (line2?1:0) + (line3?1:0);
-      const cardH = padTop + (linesCount*lineGap) + (hasCal?lineGap:0) + 6;
+      const cardH = padTop + (linesCount*lineGap) + (hasCal?lineGap*2:0) + 6;
 
       doc.setFillColor(255, 182, 193); // baby pink tab
       doc.roundedRect(x, y-7, 46, 7, 2, 2, 'F');
@@ -3313,7 +3353,9 @@ Website: https://www.irctc.co.in`;
       if(line2){ doc.text(line2, x+6, yy); yy += lineGap; }
       if(hasCal){
         doc.setTextColor(30,64,175);
-        doc.textWithLink("[Add to Calendar]", x+6, yy, { url: buildGoogleCalendarLink({ type:"festival", festivalDate: info.festivalDateObj }) });
+        doc.textWithLink("Click to set festival reminder", x+6, yy, { url: buildGoogleCalendarLink({ type:"festival", festivalDate: info.festivalDateObj }) });
+        yy += lineGap;
+        doc.textWithLink("Click to set one day before Booking Reminder", x+6, yy, { url: buildGoogleCalendarLink({ type:"festivalReminder", festivalDate: info.festivalDateObj }) });
         doc.setTextColor(textDark[0],textDark[1],textDark[2]);
         yy += lineGap;
       }
@@ -3368,6 +3410,7 @@ Website: https://www.irctc.co.in`;
       if(!requireUserName(()=>sharePlanWithPDF(target))) return;
       if(!selectedDate) return alert("Select date first");
       const message = buildShareMessage();
+      const whatsappMessage = buildWhatsAppShareMessage();
       const pdfBlob = createCurrentPlanPDFBlob();
       if(!pdfBlob) return alert("Please enter your name first.");
 
@@ -3377,7 +3420,7 @@ Website: https://www.irctc.co.in`;
         if(navigator.canShare({ files:[file] })){
           const shareData = {
             title: "IRCTC Booking Plan",
-            text: message,
+            text: target === "whatsapp" ? whatsappMessage : message,
             files: [file]
           };
           try{
@@ -3391,7 +3434,7 @@ Website: https://www.irctc.co.in`;
 
       // Fallback: auto-attach is blocked in most desktop browsers.
       if(target === "whatsapp"){
-        const url = "https://wa.me/?text=" + encodeURIComponent(message);
+        const url = "https://wa.me/?text=" + encodeURIComponent(whatsappMessage);
         window.open(url, "_blank");
         alert("PDF auto-attach is not supported in most desktop browsers. Opened WhatsApp text only; attach the PDF manually.");
       }else{
@@ -3413,14 +3456,40 @@ Website: https://www.irctc.co.in`;
       const bookingStr = document.getElementById("bookingDate").innerText;
       const travelStr = document.getElementById("travelDate").innerText;
       const arpStr = document.getElementById("arpSelect").value + " Days";
-      const bookingCal = bookingDateObj ? buildGoogleCalendarLink({ type:"booking", bookingDate:bookingDateObj, travelDate:travelDateObj }) : "";
-      return `IRCTC Booking Plan
-• Booking Date: ${bookingStr}
-• Travel Date: ${travelStr}
-• ARP: ${arpStr}
-• Booking Opens: 08:00 AM (IRCTC)
-${bookingCal ? `• Add to Calendar: ${bookingCal}\n` : ""}• Reminder: Use .ICS to auto-set 1 day before reminder
-Official: https://www.irctc.co.in`;
+      const lines = [
+        "IRCTC Booking Plan",
+        `• Booking Date: ${bookingStr}`,
+        `• Travel Date: ${travelStr}`,
+        `• ARP: ${arpStr}`,
+        "• Booking Opens: 08:00 AM (IRCTC)"
+      ];
+      if(bookingDateObj){
+        lines.push("• Add to Calendar for Booking Date reminder: click to set reminder for booking date");
+        lines.push("• Add to Calendar One Day Before reminder: click to set one day before booking reminder");
+      }
+      lines.push("• Reminder: Use .ICS for the 6:00 PM one-day-before alert");
+      lines.push("Official: IRCTC website");
+      return lines.join("\n");
+    }
+    function buildWhatsAppShareMessage(){
+      const bookingStr = document.getElementById("bookingDate").innerText;
+      const travelStr = document.getElementById("travelDate").innerText;
+      const arpStr = document.getElementById("arpSelect").value + " Days";
+      const bookingUrl = bookingDateObj ? buildGoogleCalendarLink({ type:"booking", bookingDate:bookingDateObj, travelDate:travelDateObj }) : "";
+      const reminderUrl = bookingDateObj ? buildGoogleCalendarLink({ type:"bookingReminder", bookingDate:bookingDateObj, travelDate:travelDateObj }) : "";
+      return [
+        "IRCTC Booking Plan",
+        `Booking Date: ${bookingStr}`,
+        `Travel Date: ${travelStr}`,
+        `ARP: ${arpStr}`,
+        "Booking Opens: 08:00 AM (IRCTC)",
+        "Click to set reminder for booking date",
+        bookingUrl,
+        "Click to set one day before reminder",
+        reminderUrl,
+        "Reminder: Use .ICS for the 6:00 PM one-day-before alert",
+        "Official: IRCTC website"
+      ].filter(Boolean).join("\n");
     }
 
     /* ===== Google Calendar & ICS ===== */
@@ -3470,6 +3539,14 @@ Official: https://www.irctc.co.in`;
         const start = ymd(festivalDate);
         const end = ymd(addDays(festivalDate,1));
         return `${base}&text=${titleFest}&dates=${start}/${end}&details=${encodeURIComponent("Reach before festival")}&location=${location}`;
+      }else if(type === "festivalReminder"){
+        if(!festivalDate) return "#";
+        const reminderStart = addDays(festivalDate, -1);
+        const start = ymdhmsLocal(reminderStart, 18, 0, 0);
+        const end = ymdhmsLocal(reminderStart, 18, 15, 0);
+        const titleFestReminder = encodeURIComponent("Festival One Day Before Reminder");
+        const details = encodeURIComponent("Reminder set one day before the festival at 6:00 PM.");
+        return `${base}&text=${titleFestReminder}&dates=${start}/${end}&details=${details}&location=${location}`;
       }else if(type === "travel"){
         if(!travelDate) return "#";
         const titleTravel = encodeURIComponent("Train Travel Date");
@@ -3477,6 +3554,14 @@ Official: https://www.irctc.co.in`;
         const start = ymd(travelDate);
         const end = ymd(addDays(travelDate,1));
         return `${base}&text=${titleTravel}&dates=${start}/${end}&details=${details}&location=${location}`;
+      }else if(type === "bookingReminder"){
+        if(!bookingDate) return "#";
+        const reminderStart = addDays(bookingDate, -1);
+        const start = ymdhmsLocal(reminderStart, 18, 0, 0);
+        const end = ymdhmsLocal(reminderStart, 18, 15, 0);
+        const titleReminder = encodeURIComponent(buildReminderSummaryTitle(travelDate));
+        const details = encodeURIComponent(buildReminderEventDescription(bookingDate, travelDate));
+        return `${base}&text=${titleReminder}&dates=${start}/${end}&details=${details}&location=${location}`;
       }else{
         if(!bookingDate) return "#";
         const titleBook = encodeURIComponent(buildBookingSummaryTitle(travelDate));
@@ -3516,14 +3601,35 @@ Official: https://www.irctc.co.in`;
         "DESCRIPTION:Reminder - IRCTC event tomorrow",
         "END:VALARM"
       );
-      lines.push("END:VEVENT","END:VCALENDAR");
+      lines.push("END:VEVENT");
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:${uid}-reminder`,
+        `DTSTAMP:${dtstamp}`,
+        `DTSTART:${ymdhmsLocal(addDays(bookingDate, -1), 18, 0, 0)}`,
+        `DTEND:${ymdhmsLocal(addDays(bookingDate, -1), 18, 15, 0)}`,
+        `SUMMARY:${escapeICS(buildReminderSummaryTitle(travelDate))}`,
+        `DESCRIPTION:${escapeICS(buildReminderEventDescription(bookingDate, travelDate))}`,
+        "LOCATION:IRCTC Online",
+        "BEGIN:VALARM",
+        "TRIGGER:-PT15M",
+        "ACTION:DISPLAY",
+        "DESCRIPTION:Reminder - set one day before booking",
+        "END:VALARM",
+        "END:VEVENT"
+      );
+      lines.push("END:VCALENDAR");
       return lines.join("\r\n");
     }
     function buildCombinedICS({travelDate, bookingDate}){
       const dtstamp = ymdhmsUTC(new Date());
       const bookingUid = "irctc-booking-" + Date.now() + "@planner";
       const travelUid = "irctc-travel-" + (Date.now()+1) + "@planner";
+      const reminderUid = "irctc-reminder-" + (Date.now()+2) + "@planner";
       const desc = escapeICS(buildEventDescription(bookingDate, travelDate));
+      const reminderDesc = escapeICS(buildReminderEventDescription(bookingDate, travelDate));
+      const reminderStart = ymdhmsLocal(addDays(bookingDate, -1), 18, 0, 0);
+      const reminderEnd = ymdhmsLocal(addDays(bookingDate, -1), 18, 15, 0);
       const lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
@@ -3542,6 +3648,20 @@ Official: https://www.irctc.co.in`;
         "TRIGGER:-P1D",
         "ACTION:DISPLAY",
         "DESCRIPTION:Reminder - IRCTC booking event tomorrow",
+        "END:VALARM",
+        "END:VEVENT",
+        "BEGIN:VEVENT",
+        `UID:${reminderUid}`,
+        `DTSTAMP:${dtstamp}`,
+        `DTSTART:${reminderStart}`,
+        `DTEND:${reminderEnd}`,
+        `SUMMARY:${escapeICS(buildReminderSummaryTitle(travelDate))}`,
+        `DESCRIPTION:${reminderDesc}`,
+        "LOCATION:IRCTC Online",
+        "BEGIN:VALARM",
+        "TRIGGER:-PT15M",
+        "ACTION:DISPLAY",
+        "DESCRIPTION:Reminder - set one day before booking",
         "END:VALARM",
         "END:VEVENT",
         "BEGIN:VEVENT",
@@ -3580,12 +3700,32 @@ Official: https://www.irctc.co.in`;
         : "--";
       return `Planned via IRCTC Booking Planner.
 Reminder: Tatkal Booking
-Check https://www.irctc.co.in for latest.
+Official website: IRCTC
 Booking Date: ${bookingText}
 Booking Day: ${bookingDay}
 Travel Date: ${travelText}
 Travel Day: ${travelDay}
 Days: ${days}`;
+    }
+    function buildReminderSummaryTitle(travelDate){
+      if(!travelDate || Number.isNaN(travelDate.getTime())) return "IRCTC Booking Reminder - One Day Before for";
+      const month = travelDate.toLocaleDateString("en-IN", { month: "long" });
+      const day = travelDate.getDate();
+      const weekday = travelDate.toLocaleDateString("en-IN", { weekday: "short" });
+      return `IRCTC Booking Reminder - One Day Before for travel (${month} ${day}${ordinalSuffix(day)}, ${weekday})`;
+    }
+    function buildReminderEventDescription(bookingDate, travelDate){
+      const bookingText = bookingDate
+        ? bookingDate.toLocaleDateString("en-IN", { weekday:"short", day:"2-digit", month:"short", year:"numeric" })
+        : "--";
+      const travelText = travelDate
+        ? travelDate.toLocaleDateString("en-IN", { weekday:"short", day:"2-digit", month:"short", year:"numeric" })
+        : "--";
+      return `Reminder event scheduled one day before booking opens at 6:00 PM.
+Set aside 15 minutes to prepare for the booking window.
+Booking Date: ${bookingText}
+Travel Date: ${travelText}
+Official website: IRCTC`;
     }
     function buildBookingSummaryTitle(travelDate){
       if(!travelDate || Number.isNaN(travelDate.getTime())) return "IRCTC Booking Opens";
@@ -3615,7 +3755,7 @@ Days: ${days}`;
       if(!requireUserName(()=>shareWhatsAppSaved(i))) return;
       const plan = (JSON.parse(localStorage.getItem("irctcPlans")) || [])[i];
       if(!plan) return;
-      const msg = buildShareMessageFromPlan(plan);
+      const msg = buildWhatsAppShareMessageFromPlan(plan);
       const url = "https://wa.me/?text=" + encodeURIComponent(msg);
       window.open(url, "_blank");
     }
@@ -3633,15 +3773,37 @@ Days: ${days}`;
       const travelObj = parseISODate(plan.travel) || parseLooseDate(plan.travel);
       const bookingText = bookingObj ? formatDisplayDate(bookingObj) : (plan.booking || "--");
       const travelText = travelObj ? formatDisplayDate(travelObj) : (plan.travel || "--");
-      const bookingCal = bookingObj ? buildGoogleCalendarLink({ type:"booking", bookingDate:bookingObj, travelDate:travelObj }) : "";
 
       return `IRCTC Booking Plan
 • Booking Date: ${bookingText}
 • Travel Date: ${travelText}
 • ARP: ${plan.arp} Days
 • Booking Opens: 08:00 AM (IRCTC)
-${bookingCal ? `• Add to Calendar: ${bookingCal}\n` : ""}• Reminder: Use .ICS to auto-set 1 day before reminder
-Official: https://www.irctc.co.in`;
+• Add to Calendar for Booking Date reminder: click to set reminder for booking date
+• Add to Calendar One Day Before reminder: click to set one day before booking reminder
+• Reminder: Use .ICS for the 6:00 PM one-day-before alert
+Official: IRCTC website`;
+    }
+    function buildWhatsAppShareMessageFromPlan(plan){
+      const bookingObj = parseISODate(plan.booking) || parseLooseDate(plan.booking);
+      const travelObj = parseISODate(plan.travel) || parseLooseDate(plan.travel);
+      const bookingText = bookingObj ? formatDisplayDate(bookingObj) : (plan.booking || "--");
+      const travelText = travelObj ? formatDisplayDate(travelObj) : (plan.travel || "--");
+      const bookingUrl = bookingObj ? buildGoogleCalendarLink({ type:"booking", bookingDate:bookingObj, travelDate:travelObj }) : "";
+      const reminderUrl = bookingObj ? buildGoogleCalendarLink({ type:"bookingReminder", bookingDate:bookingObj, travelDate:travelObj }) : "";
+      return [
+        "IRCTC Booking Plan",
+        `Booking Date: ${bookingText}`,
+        `Travel Date: ${travelText}`,
+        `ARP: ${plan.arp} Days`,
+        "Booking Opens: 08:00 AM (IRCTC)",
+        "Click to set reminder for booking date",
+        bookingUrl,
+        "Click to set one day before reminder",
+        reminderUrl,
+        "Reminder: Use .ICS for the 6:00 PM one-day-before alert",
+        "Official: IRCTC website"
+      ].filter(Boolean).join("\n");
     }
 
     /* ===== Bookmark / Sharable URL ===== */
